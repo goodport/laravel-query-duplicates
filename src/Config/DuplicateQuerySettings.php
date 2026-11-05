@@ -1,0 +1,205 @@
+<?php
+
+namespace Goodport\QueryDuplicates\Config;
+
+use InvalidArgumentException;
+
+final readonly class DuplicateQuerySettings
+{
+    /**
+     * @param  list<string>  $exclude
+     */
+    public function __construct(
+        public bool $enabled,
+        public bool $strict,
+        public int $threshold,
+        public ?string $logChannel,
+        public array $exclude,
+    ) {}
+
+    /**
+     * Creates settings from the configuration array and validates their values.
+     *
+     * When the package is disabled, the bundled defaults are returned without
+     * validating the rest of the user configuration.
+     *
+     * @param  array<string, mixed>  $config
+     *
+     * @throws InvalidArgumentException If a configuration value is invalid.
+     */
+    public static function fromConfig(array $config): self
+    {
+        if (! self::enabledFromConfig($config['enabled'] ?? null)) {
+            return self::parse(self::defaultConfig(), false);
+        }
+
+        return self::parse($config, true);
+    }
+
+    /**
+     * Parses the configuration with an explicit enabled flag.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    private static function parse(array $config, bool $enabled): self
+    {
+        return new self(
+            enabled: $enabled,
+            strict: self::boolean($config, 'strict'),
+            threshold: self::integer($config, 'threshold', 2),
+            logChannel: self::channel($config['log_channel'] ?? null),
+            exclude: self::stringList($config, 'exclude'),
+        );
+    }
+
+    /**
+     * Parses the package enabled flag from the raw configuration value.
+     *
+     * @throws InvalidArgumentException If the value is not boolean.
+     */
+    public static function enabledFromConfig(mixed $value): bool
+    {
+        if ($value === null) {
+            return false;
+        }
+
+        $parsed = self::parseBoolean($value);
+
+        if ($parsed === null) {
+            throw new InvalidArgumentException(
+                'The [query-duplicates.enabled] config value must be a boolean.',
+            );
+        }
+
+        return $parsed;
+    }
+
+    /**
+     * Returns the bundled default configuration.
+     *
+     * @return array<string, mixed>
+     */
+    private static function defaultConfig(): array
+    {
+        /** @var array<string, mixed> $defaults */
+        $defaults = require dirname(__DIR__, 2).'/config/query-duplicates.php';
+
+        return $defaults;
+    }
+
+    /**
+     * Reads an integer value within the allowed range.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    private static function integer(array $config, string $key, int $minimum): int
+    {
+        $value = $config[$key] ?? null;
+        $parsed = is_int($value)
+            ? $value
+            : (is_string($value) ? filter_var($value, FILTER_VALIDATE_INT) : false);
+
+        if ($parsed === false || $parsed < $minimum) {
+            throw new InvalidArgumentException(
+                "The [query-duplicates.{$key}] config value must be an integer greater than or equal to {$minimum}.",
+            );
+        }
+
+        return $parsed;
+    }
+
+    /**
+     * Reads a boolean value without implicit casting.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    private static function boolean(array $config, string $key): bool
+    {
+        $parsed = self::parseBoolean($config[$key] ?? null);
+
+        if ($parsed === null) {
+            throw new InvalidArgumentException(
+                "The [query-duplicates.{$key}] config value must be a boolean.",
+            );
+        }
+
+        return $parsed;
+    }
+
+    /**
+     * Parses a boolean value from the configuration.
+     */
+    private static function parseBoolean(mixed $value): ?bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_int($value) && ($value === 0 || $value === 1)) {
+            return $value === 1;
+        }
+
+        if (is_string($value)) {
+            $normalized = strtolower(trim($value));
+
+            if ($normalized === '1' || $normalized === 'true') {
+                return true;
+            }
+
+            if ($normalized === '0' || $normalized === 'false') {
+                return false;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Reads the optional log channel name.
+     */
+    private static function channel(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (! is_string($value)) {
+            throw new InvalidArgumentException(
+                'The [query-duplicates.log_channel] config value must be null or a non-empty string.',
+            );
+        }
+
+        return $value;
+    }
+
+    /**
+     * Reads a list of non-empty strings.
+     *
+     * @param  array<string, mixed>  $config
+     * @return list<string>
+     */
+    private static function stringList(array $config, string $key): array
+    {
+        $value = $config[$key] ?? null;
+
+        if (! is_array($value) || ! array_is_list($value)) {
+            throw new InvalidArgumentException(
+                "The [query-duplicates.{$key}] config value must be a list of non-empty strings.",
+            );
+        }
+
+        $validated = [];
+
+        foreach ($value as $entry) {
+            if (! is_string($entry) || trim($entry) === '') {
+                throw new InvalidArgumentException(
+                    "Each [query-duplicates.{$key}] entry must be a non-empty string.",
+                );
+            }
+
+            $validated[] = $entry;
+        }
+
+        return $validated;
+    }
+}

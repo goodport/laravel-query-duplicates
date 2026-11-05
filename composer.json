@@ -1,0 +1,53 @@
+{
+    "name": "goodport/laravel-query-duplicates",
+    "description": "Detect duplicated SQL queries and N+1 queries inside Laravel HTTP requests.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "database",
+        "duplicates",
+        "laravel",
+        "n-plus-one",
+        "performance",
+        "query",
+        "sql"
+    ],
+    "require": {
+        "laravel/framework": "^12.0",
+        "php": "^8.3",
+        "psr/log": "^3.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.32",
+        "mockery/mockery": "^1.6",
+        "monolog/monolog": "^3.0",
+        "orchestra/testbench": "^10.0",
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Goodport\\QueryDuplicates\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Goodport\\QueryDuplicates\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Goodport\\QueryDuplicates\\QueryDuplicatesServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "format": "vendor/bin/pint"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
