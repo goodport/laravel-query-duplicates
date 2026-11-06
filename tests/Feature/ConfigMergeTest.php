@@ -2,26 +2,20 @@
 
 namespace Goodport\QueryDuplicates\Tests\Feature;
 
-use Goodport\QueryDuplicates\QueryDuplicatesServiceProvider;
-use Orchestra\Testbench\TestCase as Orchestra;
+use Goodport\QueryDuplicates\Tests\Support\LoadsPackageConfig;
+use Goodport\QueryDuplicates\Tests\TestCase;
 
-final class ConfigMergeTest extends Orchestra
+final class ConfigMergeTest extends TestCase
 {
-    /**
-     * @return array<int, class-string>
-     */
-    protected function getPackageProviders($app): array
-    {
-        return [QueryDuplicatesServiceProvider::class];
-    }
+    use LoadsPackageConfig;
+
+    protected ?string $logChannel = null;
 
     /**
      * The package config is merged with the application settings.
      */
     public function test_package_config_is_merged(): void
     {
-        $defaults = require dirname(__DIR__, 2).'/config/query-duplicates.php';
-
-        $this->assertSame($defaults, config('query-duplicates'));
+        $this->assertSame($this->packageConfig(), config('query-duplicates'));
     }
 }

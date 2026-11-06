@@ -15,10 +15,9 @@ final class WriterDefaultsTest extends TestCase
     {
         $this->get(route('testing.duplicates.identical'))->assertOk();
 
-        $records = $this->loggedRecords('default');
+        $record = $this->singleReportRecord('default');
 
-        $this->assertCount(1, $records);
-        $this->assertSame('WARNING', $records[0]['level_name']);
-        $this->assertSame([], $this->loggedRecords());
+        $this->assertSame('WARNING', $record['level_name']);
+        $this->assertReportCount(0);
     }
 }

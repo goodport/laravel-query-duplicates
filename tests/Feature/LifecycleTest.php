@@ -33,11 +33,11 @@ final class LifecycleTest extends TestCase
         $this->get(route('testing.duplicates.identical'))->assertOk();
         $this->get(route('testing.duplicates.identical'))->assertOk();
 
-        $records = $this->loggedRecords();
+        $contexts = $this->reportContexts();
 
-        $this->assertCount(2, $records);
-        $this->assertSame(3, $records[0]['context']['query_count']);
-        $this->assertSame(3, $records[1]['context']['query_count']);
+        $this->assertCount(2, $contexts);
+        $this->assertSame(3, $contexts[0]['query_count']);
+        $this->assertSame(3, $contexts[1]['query_count']);
     }
 
     /**
@@ -47,11 +47,11 @@ final class LifecycleTest extends TestCase
     {
         $this->followingRedirects()->get(route('testing.duplicates.redirect'))->assertOk();
 
-        $records = $this->loggedRecords();
+        $contexts = $this->reportContexts();
 
-        $this->assertCount(2, $records);
-        $this->assertSame('select ? as redirect', $records[0]['context']['sql']);
-        $this->assertSame('select ? as id', $records[1]['context']['sql']);
+        $this->assertCount(2, $contexts);
+        $this->assertSame('select ? as redirect', $contexts[0]['sql']);
+        $this->assertSame('select ? as id', $contexts[1]['sql']);
     }
 
     /**
@@ -61,10 +61,7 @@ final class LifecycleTest extends TestCase
     {
         $this->get(route('testing.duplicates.exception'))->assertStatus(500);
 
-        $records = $this->loggedRecords();
-
-        $this->assertCount(1, $records);
-        $this->assertSame('select ? as exception', $records[0]['context']['sql']);
+        $this->assertSame('select ? as exception', $this->singleReportContext()['sql']);
     }
 
     /**
@@ -81,15 +78,14 @@ final class LifecycleTest extends TestCase
             $this->assertSame('Route failed.', $exception->getMessage());
         }
 
-        $this->assertSame([], $this->loggedRecords());
+        $this->assertReportCount(0);
 
         $this->get(route('testing.duplicates.identical'))->assertOk();
 
-        $records = $this->loggedRecords();
+        $context = $this->singleReportContext();
 
-        $this->assertCount(1, $records);
-        $this->assertSame('select ? as id', $records[0]['context']['sql']);
-        $this->assertSame(3, $records[0]['context']['query_count']);
+        $this->assertSame('select ? as id', $context['sql']);
+        $this->assertSame(3, $context['query_count']);
     }
 
     /**

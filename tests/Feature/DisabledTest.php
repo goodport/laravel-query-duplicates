@@ -45,7 +45,7 @@ final class DisabledTest extends TestCase
     {
         $this->get(route('testing.duplicates.identical'))->assertOk();
 
-        $this->assertSame([], $this->loggedRecords());
+        $this->assertReportCount(0);
     }
 
     /**

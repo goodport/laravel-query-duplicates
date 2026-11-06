@@ -17,9 +17,7 @@ trait DefinesQueryRoutes
     protected function defineRoutes($router): void
     {
         $router->get('/duplicates/identical', function () {
-            for ($execution = 0; $execution < 3; $execution++) {
-                DB::select('select ? as id', [7]);
-            }
+            $this->runQueryTimes(3, 'select ? as id', [7]);
 
             return response('ok');
         })->name('testing.duplicates.identical');
@@ -87,7 +85,22 @@ trait DefinesQueryRoutes
      */
     private function runQueryTwice(string $sql, array $bindings = [], ?string $connection = null): void
     {
-        DB::connection($connection)->select($sql, $bindings);
-        DB::connection($connection)->select($sql, $bindings);
+        $this->runQueryTimes(2, $sql, $bindings, $connection);
+    }
+
+    /**
+     * Runs the same SQL the given number of times.
+     *
+     * @param  array<int, mixed>  $bindings
+     */
+    private function runQueryTimes(
+        int $times,
+        string $sql,
+        array $bindings = [],
+        ?string $connection = null,
+    ): void {
+        for ($execution = 0; $execution < $times; $execution++) {
+            DB::connection($connection)->select($sql, $bindings);
+        }
     }
 }

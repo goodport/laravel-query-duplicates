@@ -7,6 +7,8 @@ use PHPUnit\Framework\TestCase;
 
 final class ExcludeMatcherTest extends TestCase
 {
+    private const EVENT_QUERY = 'select * from `example_events` where `category` = ? and `owner_type` = ?';
+
     /**
      * A substring excludes matching SQL.
      */
@@ -36,7 +38,7 @@ final class ExcludeMatcherTest extends TestCase
         $matcher = $this->matcher();
 
         $this->assertTrue($matcher->matches(
-            'select * from `example_events` where `category` = ? and `owner_type` = ?',
+            self::EVENT_QUERY,
             ['security', 'App\\Example\\Widget'],
         ));
     }
@@ -49,7 +51,7 @@ final class ExcludeMatcherTest extends TestCase
         $matcher = $this->matcher();
 
         $this->assertFalse($matcher->matches(
-            'select * from `example_events` where `category` = ? and `owner_type` = ?',
+            self::EVENT_QUERY,
             ['other', 'App\\Example\\Widget'],
         ));
     }
@@ -62,7 +64,7 @@ final class ExcludeMatcherTest extends TestCase
         $matcher = $this->matcher();
 
         $this->assertFalse($matcher->matches(
-            'select * from `example_events` where `category` = ? and `owner_type` = ?',
+            self::EVENT_QUERY,
             ['security'],
         ));
     }
@@ -75,7 +77,7 @@ final class ExcludeMatcherTest extends TestCase
         $matcher = $this->matcher();
 
         $this->assertTrue($matcher->matches(
-            'select * from `example_events` where `category` = ? and `owner_type` = ?',
+            self::EVENT_QUERY,
             ['security', 'App\\Example\\Widget', 42],
         ));
     }
@@ -133,7 +135,7 @@ final class ExcludeMatcherTest extends TestCase
     {
         return new ExcludeMatcher([
             [
-                'sql' => 'select * from `example_events` where `category` = ? and `owner_type` = ?',
+                'sql' => self::EVENT_QUERY,
                 'bindings' => [
                     0 => 'security',
                     1 => 'App\\Example\\Widget',

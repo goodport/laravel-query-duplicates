@@ -22,10 +22,7 @@ final class ReportTest extends TestCase
         $connection->select('select ? as id', [7]);
         $connection->select('select ? as id', [7]);
 
-        $records = $this->loggedRecords();
-
-        $this->assertCount(1, $records);
-        $this->assertSame(3, $records[0]['context']['query_count']);
+        $this->assertSame(3, $this->singleReportContext()['query_count']);
     }
 
     /**
@@ -35,7 +32,7 @@ final class ReportTest extends TestCase
     {
         $this->get(route('testing.duplicates.different-bindings'))->assertOk();
 
-        $this->assertSame([], $this->loggedRecords());
+        $this->assertReportCount(0);
     }
 
     /**
@@ -45,18 +42,18 @@ final class ReportTest extends TestCase
     {
         $this->get(route('testing.duplicates.identical'))->assertOk();
 
-        $record = $this->loggedRecords()[0];
+        $context = $this->singleReportContext();
 
         $this->assertSame(
             ['method', 'path', 'route', 'sql', 'query_count', 'time_ms', 'type'],
-            array_keys($record['context']),
+            array_keys($context),
         );
-        $this->assertSame('GET', $record['context']['method']);
-        $this->assertSame('duplicates/identical', $record['context']['path']);
-        $this->assertSame('testing.duplicates.identical', $record['context']['route']);
-        $this->assertSame('select ? as id', $record['context']['sql']);
-        $this->assertSame(3, $record['context']['query_count']);
-        $this->assertSame(QueryGroup::TYPE__DUPLICATE, $record['context']['type']);
+        $this->assertSame('GET', $context['method']);
+        $this->assertSame('duplicates/identical', $context['path']);
+        $this->assertSame('testing.duplicates.identical', $context['route']);
+        $this->assertSame('select ? as id', $context['sql']);
+        $this->assertSame(3, $context['query_count']);
+        $this->assertSame(QueryGroup::TYPE__DUPLICATE, $context['type']);
     }
 
     /**
@@ -66,7 +63,7 @@ final class ReportTest extends TestCase
     {
         $this->get(route('testing.duplicates.identical'))->assertOk();
 
-        $message = $this->loggedRecords()[0]['message'];
+        $message = $this->singleReportRecord()['message'];
 
         $this->assertStringContainsString('Duplicate query: 3 executions', $message);
     }
@@ -78,10 +75,7 @@ final class ReportTest extends TestCase
     {
         $this->get(route('testing.duplicates.secondary'))->assertOk();
 
-        $records = $this->loggedRecords();
-
-        $this->assertCount(1, $records);
-        $this->assertSame(2, $records[0]['context']['query_count']);
+        $this->assertSame(2, $this->singleReportContext()['query_count']);
     }
 
     /**
@@ -91,9 +85,7 @@ final class ReportTest extends TestCase
     {
         $this->get(route('testing.duplicates.identical').'?token=secret-token')->assertOk();
 
-        $records = $this->loggedRecords();
-
-        $this->assertSame('duplicates/identical', $records[0]['context']['path']);
+        $this->assertSame('duplicates/identical', $this->singleReportContext()['path']);
         $this->assertStringNotContainsString('secret-token', $this->rawLogContents());
     }
 
@@ -104,9 +96,6 @@ final class ReportTest extends TestCase
     {
         $this->get(route('testing.duplicates.identical').'/missing-page')->assertNotFound();
 
-        $records = $this->loggedRecords();
-
-        $this->assertCount(1, $records);
-        $this->assertNull($records[0]['context']['route']);
+        $this->assertNull($this->singleReportContext()['route']);
     }
 }

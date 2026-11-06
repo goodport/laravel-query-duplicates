@@ -2,6 +2,7 @@
 
 namespace Goodport\QueryDuplicates\Tests\Support;
 
+use Closure;
 use Illuminate\Database\Connection;
 use stdClass;
 
@@ -12,8 +13,13 @@ use stdClass;
  */
 final class FakeQueryConnection extends Connection
 {
-    public function __construct(string $name)
-    {
+    /**
+     * @param  (Closure(string, array<int, mixed>): array<int, mixed>)|null  $selectRows
+     */
+    public function __construct(
+        string $name,
+        private readonly ?Closure $selectRows = null,
+    ) {
         parent::__construct(new stdClass, $name, '', ['name' => $name]);
     }
 
@@ -25,7 +31,11 @@ final class FakeQueryConnection extends Connection
      */
     public function select($query, $bindings = [], $useReadPdo = true)
     {
-        return $this->run($query, $bindings, static fn (): array => []);
+        return $this->run(
+            $query,
+            $bindings,
+            fn (): array => $this->selectRows === null ? [] : ($this->selectRows)($query, $bindings),
+        );
     }
 
     /**

@@ -7,18 +7,23 @@ use Goodport\QueryDuplicates\Aggregator\QueryGroup;
 use Goodport\QueryDuplicates\Config\DuplicateQuerySettings;
 use Goodport\QueryDuplicates\Support\ExcludeMatcher;
 use Goodport\QueryDuplicates\Support\RelationQueryDetector;
-use Illuminate\Database\Connection;
+use Goodport\QueryDuplicates\Tests\Support\FakeQueryConnection;
 use Illuminate\Database\Events\QueryExecuted;
-use Mockery;
 use PHPUnit\Framework\TestCase;
 
 final class DuplicateQueryAggregatorTest extends TestCase
 {
-    protected function tearDown(): void
-    {
-        Mockery::close();
+    private const USER_RELATION_CALLSITE = 'app/Http/Resources/UserResource.php:42';
 
-        parent::tearDown();
+    private const ORDER_RELATION_CALLSITE = 'app/Http/Resources/OrderResource.php:17';
+
+    private FakeQueryConnection $connection;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->connection = new FakeQueryConnection('testing');
     }
 
     /**
@@ -46,9 +51,7 @@ final class DuplicateQueryAggregatorTest extends TestCase
         $aggregator = $this->makeAggregator();
         $aggregator->start();
 
-        foreach ([1, 2, 3] as $id) {
-            $aggregator->record($this->query('select ? as id', [$id]));
-        }
+        $this->recordDistinct($aggregator, 'select ? as id', [1, 2, 3]);
 
         $this->assertSame([], $aggregator->report());
     }
@@ -61,9 +64,7 @@ final class DuplicateQueryAggregatorTest extends TestCase
         $aggregator = $this->makeAggregator(strict: true);
         $aggregator->start();
 
-        foreach ([1, 2, 3] as $id) {
-            $aggregator->record($this->query('select ? as id', [$id]));
-        }
+        $this->recordDistinct($aggregator, 'select ? as id', [1, 2, 3]);
 
         $groups = $aggregator->report();
 
@@ -102,12 +103,10 @@ final class DuplicateQueryAggregatorTest extends TestCase
      */
     public function test_relation_repeated_from_one_callsite_is_n_plus_one(): void
     {
-        $aggregator = $this->makeAggregator(relationCallsite: 'app/Http/Resources/UserResource.php:42');
+        $aggregator = $this->makeAggregator(relationCallsites: [self::USER_RELATION_CALLSITE]);
         $aggregator->start();
 
-        foreach ([1, 2, 3] as $id) {
-            $aggregator->record($this->query('select * from `posts` where `user_id` = ?', [$id]));
-        }
+        $this->recordDistinct($aggregator, 'select * from `posts` where `user_id` = ?', [1, 2, 3]);
 
         $groups = $aggregator->report();
 
@@ -120,7 +119,7 @@ final class DuplicateQueryAggregatorTest extends TestCase
      */
     public function test_relation_with_identical_bindings_is_n_plus_one(): void
     {
-        $aggregator = $this->makeAggregator(relationCallsite: 'app/Http/Resources/UserResource.php:42');
+        $aggregator = $this->makeAggregator(relationCallsites: [self::USER_RELATION_CALLSITE]);
         $aggregator->start();
 
         $this->recordRepeated($aggregator, 'select * from `posts`', [], 2);
@@ -136,14 +135,13 @@ final class DuplicateQueryAggregatorTest extends TestCase
      */
     public function test_relation_from_different_callsites_is_not_n_plus_one(): void
     {
-        $aggregator = $this->makeAggregator(
-            relationCallsites: ['app/Http/Resources/UserResource.php:42', 'app/Http/Resources/OrderResource.php:17'],
-        );
+        $aggregator = $this->makeAggregator(relationCallsites: [
+            self::USER_RELATION_CALLSITE,
+            self::ORDER_RELATION_CALLSITE,
+        ]);
         $aggregator->start();
 
-        foreach ([1, 2] as $id) {
-            $aggregator->record($this->query('select * from `posts` where `user_id` = ?', [$id]));
-        }
+        $this->recordDistinct($aggregator, 'select * from `posts` where `user_id` = ?', [1, 2]);
 
         $this->assertSame([], $aggregator->report());
     }
@@ -153,12 +151,13 @@ final class DuplicateQueryAggregatorTest extends TestCase
      */
     public function test_relation_below_threshold_is_not_reported(): void
     {
-        $aggregator = $this->makeAggregator(threshold: 3, relationCallsite: 'app/Http/Resources/UserResource.php:42');
+        $aggregator = $this->makeAggregator(
+            threshold: 3,
+            relationCallsites: [self::USER_RELATION_CALLSITE],
+        );
         $aggregator->start();
 
-        foreach ([1, 2] as $id) {
-            $aggregator->record($this->query('select * from `posts` where `user_id` = ?', [$id]));
-        }
+        $this->recordDistinct($aggregator, 'select * from `posts` where `user_id` = ?', [1, 2]);
 
         $this->assertSame([], $aggregator->report());
     }
@@ -233,17 +232,14 @@ final class DuplicateQueryAggregatorTest extends TestCase
     }
 
     /**
-     * @param  list<string>|null  $relationCallsites
+     * @param  list<string>  $relationCallsites
      */
     private function makeAggregator(
         ?ExcludeMatcher $excludeMatcher = null,
         bool $strict = false,
         int $threshold = 2,
-        ?string $relationCallsite = null,
-        ?array $relationCallsites = null,
+        array $relationCallsites = [],
     ): DuplicateQueryAggregator {
-        $callsites = $relationCallsites ?? ($relationCallsite === null ? [] : [$relationCallsite]);
-
         return new DuplicateQueryAggregator(
             settings: new DuplicateQuerySettings(
                 enabled: true,
@@ -253,7 +249,7 @@ final class DuplicateQueryAggregatorTest extends TestCase
                 exclude: [],
             ),
             excludeMatcher: $excludeMatcher ?? new ExcludeMatcher([]),
-            relationDetector: $this->makeDetector($callsites),
+            relationDetector: $this->makeDetector($relationCallsites),
         );
     }
 
@@ -302,17 +298,28 @@ final class DuplicateQueryAggregatorTest extends TestCase
     }
 
     /**
+     * Records the same SQL with a different binding for each value.
+     *
+     * @param  array<int, mixed>  $values
+     */
+    private function recordDistinct(
+        DuplicateQueryAggregator $aggregator,
+        string $sql,
+        array $values,
+    ): void {
+        foreach ($values as $value) {
+            $aggregator->record($this->query($sql, [$value]));
+        }
+    }
+
+    /**
      * @param  array<int, mixed>  $bindings
      */
     private function query(
         string $sql,
         array $bindings = [],
-        string $connectionName = 'testing',
         float $time = 1.0,
     ): QueryExecuted {
-        $connection = Mockery::mock(Connection::class);
-        $connection->shouldReceive('getName')->andReturn($connectionName);
-
-        return new QueryExecuted($sql, $bindings, $time, $connection);
+        return new QueryExecuted($sql, $bindings, $time, $this->connection);
     }
 }

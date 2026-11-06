@@ -21,10 +21,9 @@ final class ExclusionTest extends TestCase
     {
         $this->get(route('testing.duplicates.excluded-substring'))->assertOk();
 
-        $records = $this->loggedRecords();
+        $context = $this->singleReportContext();
 
-        $this->assertCount(1, $records);
-        $this->assertSame('select 2 as kept', $records[0]['context']['sql']);
+        $this->assertSame('select 2 as kept', $context['sql']);
     }
 
     /**
@@ -36,17 +35,17 @@ final class ExclusionTest extends TestCase
 
         $this->get(route('testing.duplicates.excluded-bindings'))->assertOk();
 
-        $records = $this->loggedRecords();
+        $contexts = $this->reportContexts();
 
-        $this->assertCount(2, $records);
+        $this->assertCount(2, $contexts);
         $this->assertEqualsCanonicalizing(
             [$sql, 'select 2 as kept'],
-            array_column(array_column($records, 'context'), 'sql'),
+            array_column($contexts, 'sql'),
         );
 
-        foreach ($records as $record) {
-            if ($record['context']['sql'] === $sql) {
-                $this->assertSame(2, $record['context']['query_count']);
+        foreach ($contexts as $context) {
+            if ($context['sql'] === $sql) {
+                $this->assertSame(2, $context['query_count']);
 
                 return;
             }

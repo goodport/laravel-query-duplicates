@@ -16,10 +16,9 @@ final class StrictModeTest extends TestCase
     {
         $this->get(route('testing.duplicates.different-bindings'))->assertOk();
 
-        $records = $this->loggedRecords();
+        $context = $this->singleReportContext();
 
-        $this->assertCount(1, $records);
-        $this->assertSame(3, $records[0]['context']['query_count']);
-        $this->assertSame(QueryGroup::TYPE__DUPLICATE, $records[0]['context']['type']);
+        $this->assertSame(3, $context['query_count']);
+        $this->assertSame(QueryGroup::TYPE__DUPLICATE, $context['type']);
     }
 }

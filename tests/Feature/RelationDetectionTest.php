@@ -3,12 +3,11 @@
 namespace Goodport\QueryDuplicates\Tests\Feature;
 
 use Goodport\QueryDuplicates\Aggregator\QueryGroup;
+use Goodport\QueryDuplicates\Tests\Support\FakeQueryConnection;
 use Goodport\QueryDuplicates\Tests\TestCase;
-use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Routing\Router;
-use stdClass;
 
 final class RelationDetectionTest extends TestCase
 {
@@ -18,7 +17,10 @@ final class RelationDetectionTest extends TestCase
 
         $this->app->make('db')->extend(
             'relation',
-            static fn (array $config, string $name): RelationQueryConnection => new RelationQueryConnection($name),
+            static fn (array $config, string $name): FakeQueryConnection => new FakeQueryConnection(
+                $name,
+                self::selectRelationRows(...),
+            ),
         );
         $this->app['config']->set('database.default', 'relation');
         $this->app['config']->set('database.connections.relation', [
@@ -50,12 +52,26 @@ final class RelationDetectionTest extends TestCase
     {
         $this->get(route('testing.duplicates.relations'))->assertOk();
 
-        $records = $this->loggedRecords();
+        $context = $this->singleReportContext();
 
-        $this->assertCount(1, $records);
-        $this->assertSame(QueryGroup::TYPE__N_PLUS_ONE, $records[0]['context']['type']);
-        $this->assertSame(3, $records[0]['context']['query_count']);
-        $this->assertStringContainsString('relation_children', $records[0]['context']['sql']);
+        $this->assertSame(QueryGroup::TYPE__N_PLUS_ONE, $context['type']);
+        $this->assertSame(3, $context['query_count']);
+        $this->assertStringContainsString('relation_children', $context['sql']);
+    }
+
+    /**
+     * Returns fixed relation rows without a real database.
+     *
+     * @param  array<int, mixed>  $bindings
+     * @return list<array<string, int>>
+     */
+    private static function selectRelationRows(string $query, array $bindings): array
+    {
+        if (str_contains($query, 'relation_parents')) {
+            return [['id' => 1], ['id' => 2], ['id' => 3]];
+        }
+
+        return [['id' => 1, 'relation_parent_id' => (int) $bindings[0]]];
     }
 }
 
@@ -75,40 +91,4 @@ final class RelationParent extends Model
 final class RelationChild extends Model
 {
     public $timestamps = false;
-}
-
-/**
- * Returns fixed relation rows without a real database.
- */
-final class RelationQueryConnection extends Connection
-{
-    public function __construct(string $name)
-    {
-        parent::__construct(new stdClass, $name, '', ['name' => $name]);
-    }
-
-    /**
-     * @param  string  $query
-     * @param  array<int, mixed>  $bindings
-     * @param  bool  $useReadPdo
-     * @return array<int, array<string, int>>
-     */
-    public function select($query, $bindings = [], $useReadPdo = true)
-    {
-        return $this->run($query, $bindings, static function () use ($query, $bindings): array {
-            if (str_contains($query, 'relation_parents')) {
-                return [['id' => 1], ['id' => 2], ['id' => 3]];
-            }
-
-            return [['id' => 1, 'relation_parent_id' => (int) $bindings[0]]];
-        });
-    }
-
-    /**
-     * Returns a fixed query time so feature tests do not depend on machine speed.
-     */
-    protected function getElapsedTime($start)
-    {
-        return 0.1;
-    }
 }

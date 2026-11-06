@@ -4,39 +4,23 @@ namespace Goodport\QueryDuplicates\Tests\Feature;
 
 use Goodport\QueryDuplicates\Http\TrackDuplicateQueries;
 use Goodport\QueryDuplicates\QueryDuplicatesServiceProvider;
-use Goodport\QueryDuplicates\Tests\Support\DefinesLogChannels;
+use Goodport\QueryDuplicates\Tests\TestCase;
 use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel as KernelContract;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use InvalidArgumentException;
-use Orchestra\Testbench\TestCase as Orchestra;
 
-final class MissingChannelBootTest extends Orchestra
+final class MissingChannelBootTest extends TestCase
 {
-    use DefinesLogChannels;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->clearLogFiles($this->app);
-    }
-
-    protected function tearDown(): void
-    {
-        $this->clearLogFiles($this->app);
-
-        parent::tearDown();
-    }
-
     /**
-     * @param  Application  $app
+     * The provider is registered manually after the package config is overridden.
+     *
+     * @return array<int, class-string>
      */
-    protected function defineEnvironment($app): void
+    protected function getPackageProviders($app): array
     {
-        $this->defineLogChannels($app);
+        return [];
     }
 
     /**

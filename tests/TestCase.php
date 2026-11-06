@@ -104,6 +104,48 @@ abstract class TestCase extends Orchestra
     }
 
     /**
+     * Asserts the number of report entries in the channel.
+     */
+    protected function assertReportCount(int $expected, string $channel = 'query-duplicates'): void
+    {
+        $this->assertCount($expected, $this->loggedRecords($channel));
+    }
+
+    /**
+     * Returns the report contexts in log order.
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected function reportContexts(string $channel = 'query-duplicates'): array
+    {
+        return array_column($this->loggedRecords($channel), 'context');
+    }
+
+    /**
+     * Returns the only report record and asserts that it is the only one.
+     *
+     * @return array<string, mixed>
+     */
+    protected function singleReportRecord(string $channel = 'query-duplicates'): array
+    {
+        $records = $this->loggedRecords($channel);
+
+        $this->assertCount(1, $records, 'Exactly one report entry was expected.');
+
+        return $records[0];
+    }
+
+    /**
+     * Returns the only report context and asserts that it is the only one.
+     *
+     * @return array<string, mixed>
+     */
+    protected function singleReportContext(string $channel = 'query-duplicates'): array
+    {
+        return $this->singleReportRecord($channel)['context'];
+    }
+
+    /**
      * Returns all channel records, including service entries.
      *
      * @return list<array<string, mixed>>
