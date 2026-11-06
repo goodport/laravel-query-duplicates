@@ -1,52 +1,52 @@
 # AGENTS.md
 
-## О пакете
+## About the Package
 
-`goodport/laravel-query-duplicates` — инструмент разработки и тестирования для Laravel: находит дублирующиеся SQL-запросы и N+1 внутри HTTP-запросов. Устанавливается в `require-dev` и не предназначен для production-мониторинга.
+`goodport/laravel-query-duplicates` is a development and testing tool for Laravel: it detects duplicate SQL queries and N+1 queries within HTTP requests. It is installed in `require-dev` and is not intended for production monitoring.
 
-## Стек
+## Stack
 
 - PHP 8.3+
 - Laravel 12
 - `psr/log` ^3.0
-- Тесты: Orchestra Testbench, PHPUnit 11
-- Форматирование: Laravel Pint
+- Testing: Orchestra Testbench, PHPUnit 11
+- Formatting: Laravel Pint
 
-## Структура
+## Structure
 
-- `src/QueryDuplicatesServiceProvider.php` — регистрация listener и middleware.
-- `src/Http/TrackDuplicateQueries.php` — жизненный цикл сбора на HTTP-запрос.
-- `src/Listener/RecordQuery.php` — подписка на `QueryExecuted`.
-- `src/Aggregator/DuplicateQueryAggregator.php` — группировка запросов и правила отчёта.
-- `src/Aggregator/QueryGroup.php` — данные группы, типы `duplicate` и `n+1`.
-- `src/Config/DuplicateQuerySettings.php` — разбор и валидация конфига.
-- `src/Logging/` — запись отчёта и выбор канала.
-- `src/Support/` — исключения SQL и определение N+1.
-- `config/query-duplicates.php` — публикуемый конфиг.
-- `tests/` — Unit, Feature, Integration и Support-хелперы.
+- `src/QueryDuplicatesServiceProvider.php` — registers the listener and middleware.
+- `src/Http/TrackDuplicateQueries.php` — per-HTTP-request collection lifecycle.
+- `src/Listener/RecordQuery.php` — subscribes to `QueryExecuted`.
+- `src/Aggregator/DuplicateQueryAggregator.php` — query grouping and reporting rules.
+- `src/Aggregator/QueryGroup.php` — group data and the `duplicate` and `n+1` types.
+- `src/Config/DuplicateQuerySettings.php` — config parsing and validation.
+- `src/Logging/` — report writing and channel selection.
+- `src/Support/` — SQL exceptions and N+1 detection.
+- `config/query-duplicates.php` — publishable config.
+- `tests/` — Unit, Feature, Integration, and Support helpers.
 
-## Ключевое поведение
+## Key Behavior
 
-- Отслеживаются только SQL внутри HTTP-запроса; console, queue, scheduler и Octane вне scope.
-- N+1 имеет приоритет над duplicate.
-- Порог срабатывания — `threshold`.
-- В отчёт не попадает query string.
-- Память ограничена числом уникальных SQL и лимитом наборов bindings.
+- Only SQL executed inside an HTTP request is tracked; console, queue, scheduler, and Octane are out of scope.
+- N+1 takes priority over duplicate.
+- The trigger threshold is `threshold`.
+- The query string is never included in the report.
+- Memory is bounded by the number of unique SQL statements and a limit on binding sets.
 
-## Команды
+## Commands
 
 - `composer install`
-- `composer test` или `vendor/bin/phpunit`
+- `composer test` or `vendor/bin/phpunit`
 - `vendor/bin/pint --dirty`
 
-## Тесты
+## Tests
 
-- Используют Orchestra Testbench, фейковое соединение и файловые log-каналы.
-- Реальные БД и сеть не нужны.
-- Запускай только связанные с изменением тесты.
+- Use Orchestra Testbench, a fake connection, and file-based log channels.
+- No real database or network access is required.
+- Run only the tests related to your change.
 
-## Правила
+## Rules
 
-- Не добавляй зависимости от моделей, контроллеров, роутов и БД конкретного приложения.
-- Меняй публичный API и конфиг обратносовместимо.
-- Этот файл описывает структуру пакета; обновляй его при изменении архитектуры.
+- Do not add dependencies on application-specific models, controllers, routes, or databases.
+- Change the public API and config in a backward-compatible way.
+- This file describes the package structure; update it when the architecture changes.
