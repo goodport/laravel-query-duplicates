@@ -6,6 +6,6 @@
 /.env.*
 /.idea/
 /.vscode/
-/.kilo/rules/
-/.gigacode/rules/
+/.kilo/
+/.gigacode/
 .DS_Store

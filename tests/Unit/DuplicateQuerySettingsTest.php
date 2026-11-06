@@ -58,6 +58,147 @@ final class DuplicateQuerySettingsTest extends TestCase
     }
 
     /**
+     * A string exclusion is kept as a SQL substring.
+     */
+    public function test_string_exclusion_is_kept(): void
+    {
+        $settings = DuplicateQuerySettings::fromConfig($this->config([
+            'exclude' => ['from `sessions`'],
+        ]));
+
+        $this->assertSame(['from `sessions`'], $settings->exclude);
+    }
+
+    /**
+     * An array exclusion is normalized with its bindings.
+     */
+    public function test_array_exclusion_is_normalized(): void
+    {
+        $settings = DuplicateQuerySettings::fromConfig($this->config([
+            'exclude' => [
+                [
+                    'sql' => 'select * from `example_events` where `category` = ?',
+                    'bindings' => [0 => 'security'],
+                ],
+            ],
+        ]));
+
+        $this->assertSame([
+            [
+                'sql' => 'select * from `example_events` where `category` = ?',
+                'bindings' => [0 => 'security'],
+            ],
+        ], $settings->exclude);
+    }
+
+    /**
+     * Bindings are optional and default to an empty map.
+     */
+    public function test_rule_without_bindings_defaults_to_empty_map(): void
+    {
+        $settings = DuplicateQuerySettings::fromConfig($this->config([
+            'exclude' => [
+                ['sql' => 'from `sessions`'],
+            ],
+        ]));
+
+        $this->assertSame([
+            ['sql' => 'from `sessions`', 'bindings' => []],
+        ], $settings->exclude);
+    }
+
+    /**
+     * An empty rule SQL is invalid.
+     */
+    public function test_empty_rule_sql_throws_exception(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('query-duplicates.exclude');
+
+        DuplicateQuerySettings::fromConfig($this->config([
+            'exclude' => [['sql' => '']],
+        ]));
+    }
+
+    /**
+     * A non-string rule SQL is invalid.
+     */
+    public function test_non_string_rule_sql_throws_exception(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('query-duplicates.exclude');
+
+        DuplicateQuerySettings::fromConfig($this->config([
+            'exclude' => [['sql' => 123]],
+        ]));
+    }
+
+    /**
+     * Rule bindings must be an array.
+     */
+    public function test_non_array_rule_bindings_throws_exception(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('query-duplicates.exclude');
+
+        DuplicateQuerySettings::fromConfig($this->config([
+            'exclude' => [['sql' => 'from `sessions`', 'bindings' => 'security']],
+        ]));
+    }
+
+    /**
+     * A negative binding position is invalid.
+     */
+    public function test_negative_binding_position_throws_exception(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('query-duplicates.exclude');
+
+        DuplicateQuerySettings::fromConfig($this->config([
+            'exclude' => [['sql' => 'from `sessions`', 'bindings' => [-1 => 'security']]],
+        ]));
+    }
+
+    /**
+     * A non-integer binding position is invalid.
+     */
+    public function test_non_integer_binding_position_throws_exception(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('query-duplicates.exclude');
+
+        DuplicateQuerySettings::fromConfig($this->config([
+            'exclude' => [['sql' => 'from `sessions`', 'bindings' => ['category' => 'security']]],
+        ]));
+    }
+
+    /**
+     * Unknown rule keys are invalid.
+     */
+    public function test_unknown_rule_key_throws_exception(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('query-duplicates.exclude');
+
+        DuplicateQuerySettings::fromConfig($this->config([
+            'exclude' => [['sql' => 'from `sessions`', 'binding' => [0 => 'security']]],
+        ]));
+    }
+
+    /**
+     * An entry must be a string or an array rule.
+     */
+    public function test_invalid_exclusion_entry_type_throws_exception(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('query-duplicates.exclude');
+
+        DuplicateQuerySettings::fromConfig($this->config([
+            'exclude' => [123],
+        ]));
+    }
+
+    /**
      * The strict flag must be a boolean.
      */
     public function test_non_boolean_strict_value_throws_exception(): void

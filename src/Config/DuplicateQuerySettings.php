@@ -7,7 +7,7 @@ use InvalidArgumentException;
 final readonly class DuplicateQuerySettings
 {
     /**
-     * @param  list<string>  $exclude
+     * @param  list<string|array{sql: string, bindings: array<int, mixed>}>  $exclude
      */
     public function __construct(
         public bool $enabled,
@@ -48,7 +48,7 @@ final readonly class DuplicateQuerySettings
             strict: self::boolean($config, 'strict'),
             threshold: self::integer($config, 'threshold', 2),
             logChannel: self::channel($config['log_channel'] ?? null),
-            exclude: self::stringList($config, 'exclude'),
+            exclude: self::exclusions($config),
         );
     }
 
@@ -173,33 +173,99 @@ final readonly class DuplicateQuerySettings
     }
 
     /**
-     * Reads a list of non-empty strings.
+     * Reads exclusion rules: SQL substrings and rules with optional bindings.
      *
      * @param  array<string, mixed>  $config
-     * @return list<string>
+     * @return list<string|array{sql: string, bindings: array<int, mixed>}>
      */
-    private static function stringList(array $config, string $key): array
+    private static function exclusions(array $config): array
     {
-        $value = $config[$key] ?? null;
+        $value = $config['exclude'] ?? null;
 
         if (! is_array($value) || ! array_is_list($value)) {
             throw new InvalidArgumentException(
-                "The [query-duplicates.{$key}] config value must be a list of non-empty strings.",
+                'The [query-duplicates.exclude] config value must be a list of exclusion rules.',
             );
         }
 
         $validated = [];
 
         foreach ($value as $entry) {
-            if (! is_string($entry) || trim($entry) === '') {
-                throw new InvalidArgumentException(
-                    "Each [query-duplicates.{$key}] entry must be a non-empty string.",
-                );
-            }
-
-            $validated[] = $entry;
+            $validated[] = is_array($entry)
+                ? self::exclusionRule($entry)
+                : self::exclusionSubstring($entry);
         }
 
         return $validated;
+    }
+
+    /**
+     * Validates a SQL substring exclusion rule.
+     */
+    private static function exclusionSubstring(mixed $entry): string
+    {
+        if (! is_string($entry) || trim($entry) === '') {
+            throw new InvalidArgumentException(
+                'Each [query-duplicates.exclude] entry must be a non-empty string or a rule array.',
+            );
+        }
+
+        return $entry;
+    }
+
+    /**
+     * Validates an exclusion rule with a SQL substring and optional bindings.
+     *
+     * @param  array<array-key, mixed>  $rule
+     * @return array{sql: string, bindings: array<int, mixed>}
+     */
+    private static function exclusionRule(array $rule): array
+    {
+        self::assertKnownRuleKeys($rule);
+
+        $sql = $rule['sql'] ?? null;
+
+        if (! is_string($sql) || trim($sql) === '') {
+            throw new InvalidArgumentException(
+                'The [query-duplicates.exclude] rule [sql] must be a non-empty string.',
+            );
+        }
+
+        $bindings = $rule['bindings'] ?? [];
+
+        if (! is_array($bindings)) {
+            throw new InvalidArgumentException(
+                'The [query-duplicates.exclude] rule [bindings] must be an array.',
+            );
+        }
+
+        foreach (array_keys($bindings) as $position) {
+            if (! is_int($position) || $position < 0) {
+                throw new InvalidArgumentException(
+                    'The [query-duplicates.exclude] rule [bindings] keys must be non-negative integers.',
+                );
+            }
+        }
+
+        return [
+            'sql' => $sql,
+            'bindings' => $bindings,
+        ];
+    }
+
+    /**
+     * Rejects unknown rule keys to make configuration typos visible.
+     *
+     * @param  array<array-key, mixed>  $rule
+     */
+    private static function assertKnownRuleKeys(array $rule): void
+    {
+        $unknownKeys = array_diff(array_keys($rule), ['sql', 'bindings']);
+
+        if ($unknownKeys !== []) {
+            throw new InvalidArgumentException(
+                'The [query-duplicates.exclude] rule may contain only [sql] and [bindings] keys.',
+            );
+        }
     }
 }

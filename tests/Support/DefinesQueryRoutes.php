@@ -45,6 +45,16 @@ trait DefinesQueryRoutes
             return response('ok');
         })->name('testing.duplicates.excluded-substring');
 
+        $router->get('/duplicates/excluded-bindings', function () {
+            $sql = 'select * from `example_events` where `category` = ?';
+
+            $this->runQueryTwice($sql, ['security']);
+            $this->runQueryTwice($sql, ['other']);
+            $this->runQueryTwice('select 2 as kept');
+
+            return response('ok');
+        })->name('testing.duplicates.excluded-bindings');
+
         $router->get('/duplicates/redirect', function () {
             $this->runQueryTwice('select ? as redirect', [1]);
 

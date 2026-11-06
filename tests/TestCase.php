@@ -25,7 +25,7 @@ abstract class TestCase extends Orchestra
     protected ?int $threshold = null;
 
     /**
-     * @var list<string>|null
+     * @var list<string|array{sql: string, bindings?: array<int, mixed>}>|null
      */
     protected ?array $exclude = null;
 

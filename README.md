@@ -55,7 +55,7 @@ return [
 | `strict` | `false` | Reports the same SQL regardless of bindings. |
 | `threshold` | `2` | Minimum executions before a query is reported. Used for duplicates and N+1. |
 | `log_channel` | `null` | Log channel name; `null` means the default channel. |
-| `exclude` | `[]` | SQL substrings excluded from tracking. |
+| `exclude` | `[]` | SQL substrings and rules with optional bindings excluded from tracking. |
 
 A dedicated log channel keeps reports separate from the regular application log:
 
@@ -88,14 +88,47 @@ the emergency logger.
 
 A single execution is never reported.
 
-Exclusions are matched against the normalized SQL returned by Laravel, so `?`
-placeholders are used and bindings do not affect matching:
+### Exclusions
+
+Each `exclude` entry is either a SQL substring or a rule array. Substrings are
+matched against the normalized SQL returned by Laravel, so `?` placeholders are
+used and bindings do not affect matching:
 
 ```php
 'exclude' => [
     'select * from `sessions`',
 ],
 ```
+
+A rule array has a required `sql` substring and optional `bindings`:
+
+```php
+'exclude' => [
+    [
+        'sql' => 'select * from `example_events` where `category` = ? and `owner_type` = ?',
+        'bindings' => [
+            0 => 'security',
+            1 => 'App\\Example\\Widget',
+        ],
+    ],
+],
+```
+
+The query is excluded only when the SQL contains `sql` and every listed binding
+position matches the query bindings strictly (`===`). Positions that are not
+listed in the rule, including dynamic identifiers and types, are not checked.
+A position that is listed in the rule but missing from the query does not match.
+An empty `bindings` array excludes by SQL only. Several entries are combined
+with OR, and string entries keep their previous behavior.
+
+Invalid rules, such as an empty `sql`, a non-array `bindings` value, or a
+negative or non-integer binding position, stop configuration parsing with an
+`InvalidArgumentException`.
+
+The configuration uses only arrays and scalar values, with no closures or
+callables, so it is compatible with `php artisan config:cache`. Application
+specific exclusions belong in the publishing application's configuration, not
+in the package.
 
 ## Log output
 

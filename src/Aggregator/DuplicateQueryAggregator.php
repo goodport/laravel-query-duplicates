@@ -62,7 +62,7 @@ final class DuplicateQueryAggregator
             return;
         }
 
-        if ($this->excludeMatcher->matches($query->sql)) {
+        if ($this->excludeMatcher->matches($query->sql, $query->bindings)) {
             return;
         }
 

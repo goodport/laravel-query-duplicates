@@ -56,13 +56,24 @@ return [
     | Exclusions
     |--------------------------------------------------------------------------
     |
-    | SQL substrings excluded from tracking. Matching is done against the SQL
-    | with placeholders, so bindings do not affect it.
+    | Queries excluded from tracking. An entry is either a SQL substring or a
+    | rule array with [sql] and optional [bindings]. SQL is matched against the
+    | statement with placeholders. Only the binding positions listed in the
+    | rule are compared, using strict equality.
+    |
+    | The configuration contains only arrays and scalar values, so it can be
+    | cached with config:cache.
     |
     | Example:
     |
     | 'exclude' => [
     |     'select * from `sessions`',
+    |     [
+    |         'sql' => 'select * from `example_events` where `category` = ?',
+    |         'bindings' => [
+    |             0 => 'security',
+    |         ],
+    |     ],
     | ],
     |
     */
