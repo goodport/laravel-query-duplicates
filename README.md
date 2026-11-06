@@ -85,6 +85,9 @@ the emergency logger.
 - **Duplicate**: the same SQL ran at least `threshold` times. In non-strict mode,
   the bindings must also match. In strict mode, bindings are ignored.
 - N+1 has priority: a relation query is reported as `n+1`, not as a duplicate.
+- An identical report is written once per hour. Reports are considered identical
+  when the method, path, route, SQL and type match, so repeated HTTP requests do
+  not add duplicate log entries.
 
 A single execution is never reported.
 
@@ -132,7 +135,8 @@ in the package.
 
 ## Log output
 
-One entry is written per reported query group in `terminate()`. In a normal HTTP
+One entry is written per reported query group in `terminate()`; reports that were
+already written with the same identity are skipped for one hour. In a normal HTTP
 lifecycle this happens after the response has been sent; in tests `terminate()` is
 called before `call()` returns.
 
@@ -166,6 +170,8 @@ query parameters do not reach the log.
 - Enabled inside an HTTP request: one `md5` of the SQL and one binding
   fingerprint per execution. The call stack is inspected once for every new query
   and on each execution of a relation query until it is confirmed as N+1.
+- When a report is written: one cache add for its identity. Repeated identical
+  reports are skipped.
 
 Memory is bounded by the number of unique SQL statements and by a fixed limit of
 tracked binding sets per group.
@@ -174,6 +180,9 @@ tracked binding sets per group.
 
 - Only HTTP requests are tracked. Console commands, queue workers, the scheduler
   and Octane are out of scope.
+- Duplicate suppression uses the application cache. A process-local store such as
+  `array` suppresses repeats only within that process; a shared store keeps the
+  suppression across requests.
 - N+1 detection covers lazy Eloquent relations. Manual repeated queries are
   reported as duplicates.
 - `WithoutMiddleware` removes the package middleware, so tracking does not run for

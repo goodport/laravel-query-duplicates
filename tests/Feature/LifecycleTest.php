@@ -4,6 +4,7 @@ namespace Goodport\QueryDuplicates\Tests\Feature;
 
 use Goodport\QueryDuplicates\Aggregator\DuplicateQueryAggregator;
 use Goodport\QueryDuplicates\Logging\DuplicateQueryWriter;
+use Goodport\QueryDuplicates\Logging\ReportDeduplicator;
 use Goodport\QueryDuplicates\Tests\TestCase;
 use Psr\Log\AbstractLogger;
 use RuntimeException;
@@ -31,13 +32,26 @@ final class LifecycleTest extends TestCase
     public function test_each_request_gets_its_own_report(): void
     {
         $this->get(route('testing.duplicates.identical'))->assertOk();
-        $this->get(route('testing.duplicates.identical'))->assertOk();
+        $this->get(route('testing.duplicates.secondary'))->assertOk();
 
         $contexts = $this->reportContexts();
 
         $this->assertCount(2, $contexts);
         $this->assertSame(3, $contexts[0]['query_count']);
-        $this->assertSame(3, $contexts[1]['query_count']);
+        $this->assertSame(2, $contexts[1]['query_count']);
+    }
+
+    /**
+     * An identical report is written only once.
+     */
+    public function test_identical_report_is_written_once(): void
+    {
+        $this->get(route('testing.duplicates.identical'))->assertOk();
+        $this->get(route('testing.duplicates.identical'))->assertOk();
+
+        $context = $this->singleReportContext();
+
+        $this->assertSame(3, $context['query_count']);
     }
 
     /**
@@ -103,7 +117,10 @@ final class LifecycleTest extends TestCase
 
         $this->app->instance(
             DuplicateQueryWriter::class,
-            new DuplicateQueryWriter($throwingLogger, 'warning'),
+            new DuplicateQueryWriter(
+                logger: $throwingLogger,
+                deduplicator: $this->app->make(ReportDeduplicator::class),
+            ),
         );
 
         try {

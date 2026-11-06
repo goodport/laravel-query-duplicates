@@ -11,6 +11,7 @@ final class DuplicateQueryWriter
 
     public function __construct(
         private readonly LoggerInterface $logger,
+        private readonly ReportDeduplicator $deduplicator,
     ) {}
 
     /**
@@ -18,6 +19,10 @@ final class DuplicateQueryWriter
      */
     public function write(QueryRequestContext $requestContext, QueryGroup $group): void
     {
+        if (! $this->deduplicator->shouldWrite($requestContext, $group)) {
+            return;
+        }
+
         $timeMs = round($group->totalTimeMs, 2);
         $type = $group->type;
 

@@ -8,8 +8,10 @@ use Goodport\QueryDuplicates\Http\TrackDuplicateQueries;
 use Goodport\QueryDuplicates\Listener\RecordQuery;
 use Goodport\QueryDuplicates\Logging\DuplicateQueryWriter;
 use Goodport\QueryDuplicates\Logging\LogChannelResolver;
+use Goodport\QueryDuplicates\Logging\ReportDeduplicator;
 use Goodport\QueryDuplicates\Support\ExcludeMatcher;
 use Goodport\QueryDuplicates\Support\StackRelationQueryDetector;
+use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel as KernelContract;
@@ -45,6 +47,10 @@ class QueryDuplicatesServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(LogChannelResolver::class);
+
+        $this->app->singleton(ReportDeduplicator::class, function (Application $app): ReportDeduplicator {
+            return new ReportDeduplicator($app->make(CacheRepository::class));
+        });
     }
 
     public function boot(): void
@@ -75,7 +81,10 @@ class QueryDuplicatesServiceProvider extends ServiceProvider
 
         $this->app->instance(
             DuplicateQueryWriter::class,
-            new DuplicateQueryWriter($logger),
+            new DuplicateQueryWriter(
+                logger: $logger,
+                deduplicator: $this->app->make(ReportDeduplicator::class),
+            ),
         );
 
         $this->app->make(Dispatcher::class)->listen(

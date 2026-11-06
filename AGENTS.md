@@ -20,7 +20,7 @@
 - `src/Aggregator/DuplicateQueryAggregator.php` — query grouping and reporting rules.
 - `src/Aggregator/QueryGroup.php` — group data and the `duplicate` and `n+1` types.
 - `src/Config/DuplicateQuerySettings.php` — config parsing and validation.
-- `src/Logging/` — report writing and channel selection.
+- `src/Logging/` — report writing, duplicate suppression (`ReportDeduplicator`), and channel selection.
 - `src/Support/` — SQL exceptions and N+1 detection.
 - `config/query-duplicates.php` — publishable config.
 - `tests/` — Unit, Feature, Integration, and Support helpers.
@@ -31,6 +31,7 @@
 - N+1 takes priority over duplicate.
 - The trigger threshold is `threshold`.
 - The query string is never included in the report.
+- Identical reports are written once per hour; the deduplication key is hashed and stored in the application cache.
 - Memory is bounded by the number of unique SQL statements and a limit on binding sets.
 
 ## Commands
