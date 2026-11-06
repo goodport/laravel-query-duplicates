@@ -22,6 +22,12 @@ trait DefinesQueryRoutes
             return response('ok');
         })->name('testing.duplicates.identical');
 
+        $router->get('/duplicates/parameter/{id}', function (int $id) {
+            $this->runQueryTimes(3, "select * from `example_users` where `id` in ({$id})");
+
+            return response('ok');
+        })->name('testing.duplicates.parameter');
+
         $router->get('/duplicates/different-bindings', function () {
             foreach ([1, 2, 3] as $id) {
                 DB::select('select ? as id', [$id]);

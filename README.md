@@ -86,8 +86,10 @@ the emergency logger.
   the bindings must also match. In strict mode, bindings are ignored.
 - N+1 has priority: a relation query is reported as `n+1`, not as a duplicate.
 - An identical report is written once per hour. Reports are considered identical
-  when the method, path, route, SQL and type match, so repeated HTTP requests do
-  not add duplicate log entries.
+  when the method, route (or normalized path), normalized SQL and type match.
+  Path parameters and SQL literals are replaced with placeholders for this
+  comparison, so repeated requests for different records do not add duplicate
+  log entries.
 
 A single execution is never reported.
 

@@ -55,6 +55,20 @@ final class LifecycleTest extends TestCase
     }
 
     /**
+     * Reports with different path parameters and SQL literals are written only once.
+     */
+    public function test_report_with_different_parameters_is_written_once(): void
+    {
+        $this->get(route('testing.duplicates.parameter', ['id' => 27]))->assertOk();
+        $this->get(route('testing.duplicates.parameter', ['id' => 9]))->assertOk();
+
+        $context = $this->singleReportContext();
+
+        $this->assertSame('duplicates/parameter/27', $context['path']);
+        $this->assertStringContainsString('in (27)', $context['sql']);
+    }
+
+    /**
      * A redirect produces a separate report for each HTTP request.
      */
     public function test_redirect_gives_report_for_each_request(): void

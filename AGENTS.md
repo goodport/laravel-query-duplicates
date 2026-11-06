@@ -31,7 +31,7 @@
 - N+1 takes priority over duplicate.
 - The trigger threshold is `threshold`.
 - The query string is never included in the report.
-- Identical reports are written once per hour; the deduplication key is hashed and stored in the application cache.
+- Identical reports are written once per hour; the deduplication key uses the route and normalized SQL, is hashed, and stored in the application cache.
 - Memory is bounded by the number of unique SQL statements and a limit on binding sets.
 
 ## Commands
