@@ -583,9 +583,16 @@
             text-transform: uppercase;
         }
 
-        .cell-truncate {
+        .cell-route {
             display: block;
-            max-width: 180px;
+            min-width: 220px;
+            overflow-wrap: anywhere;
+            white-space: normal;
+        }
+
+        .cell-path {
+            display: block;
+            max-width: 360px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -634,11 +641,11 @@
         }
 
         .cell-sql {
-            min-width: 240px;
+            min-width: 480px;
         }
 
         .sql-box {
-            max-width: 320px;
+            max-width: 640px;
             padding: 7px 9px;
             overflow: hidden;
             border: 1px solid var(--qd-code-border);
@@ -656,7 +663,7 @@
             overflow-wrap: anywhere;
             white-space: pre-wrap;
             -webkit-box-orient: vertical;
-            -webkit-line-clamp: 2;
+            -webkit-line-clamp: 4;
         }
 
         .sql-keyword {
@@ -1171,13 +1178,13 @@
                                 </td>
                                 <td class="mono" dir="ltr">
                                     @if ($duplicate->route)
-                                        <span class="cell-truncate" title="{{ $duplicate->route }}">{{ $duplicate->route }}</span>
+                                        <span class="cell-route">{{ $duplicate->route }}</span>
                                     @else
                                         <span class="muted">—</span>
                                     @endif
                                 </td>
                                 <td class="mono" dir="ltr">
-                                    <span class="cell-truncate" title="{{ $duplicate->path }}">{{ $duplicate->path }}</span>
+                                    <span class="cell-path" title="{{ $duplicate->path }}">{{ $duplicate->path }}</span>
                                 </td>
                                 <td class="numeric">{{ $duplicate->query_count }}</td>
                                 <td class="numeric">{{ number_format($duplicate->time_ms, 2) }}</td>
