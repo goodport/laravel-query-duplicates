@@ -681,18 +681,19 @@
         }
 
         .cell-actions {
-            width: 280px;
-            min-width: 280px;
+            width: 160px;
+            min-width: 160px;
             white-space: nowrap;
         }
 
         .row-actions {
             display: flex;
+            flex-direction: column;
             gap: 6px;
         }
 
         .row-actions > * {
-            flex: 1 1 0;
+            width: 100%;
             min-width: 0;
         }
 
