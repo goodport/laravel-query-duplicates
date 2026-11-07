@@ -5,7 +5,7 @@ namespace Goodport\QueryDuplicates\Tests;
 use Goodport\QueryDuplicates\Aggregator\QueryGroup;
 use Goodport\QueryDuplicates\Models\QueryDuplicate;
 use Goodport\QueryDuplicates\QueryDuplicatesServiceProvider;
-use Goodport\QueryDuplicates\Tests\Support\DefinesQueryDuplicateDatabase;
+use Goodport\QueryDuplicates\Storage\SqliteStorage;
 use Goodport\QueryDuplicates\Tests\Support\DefinesQueryRoutes;
 use Goodport\QueryDuplicates\Tests\Support\FakeQueryConnection;
 use Illuminate\Contracts\Foundation\Application;
@@ -18,7 +18,6 @@ use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
 {
-    use DefinesQueryDuplicateDatabase;
     use DefinesQueryRoutes;
 
     protected bool $packageEnabled = true;
@@ -45,7 +44,7 @@ abstract class TestCase extends Orchestra
             static fn (array $config, string $name): FakeQueryConnection => new FakeQueryConnection($name),
         );
 
-        $this->migrateQueryDuplicateTable();
+        $this->app->make(SqliteStorage::class)->ensure();
     }
 
     protected function tearDown(): void
@@ -70,7 +69,7 @@ abstract class TestCase extends Orchestra
     {
         $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('a', 32)));
 
-        $this->defineQueryDuplicateDatabase($app);
+        $app['config']->set('query-duplicates.storage_path', SqliteStorage::MEMORY_PATH);
 
         $app['config']->set('database.default', 'testing');
         $app['config']->set('database.connections.testing', [

@@ -84,6 +84,30 @@ final class AdminRouteDefaultsTest extends TestCase
     }
 
     /**
+     * Нестроковые middleware отбрасываются, строковые сохраняются.
+     */
+    public function test_non_string_middleware_items_are_removed(): void
+    {
+        $adminRoute = AdminRouteDefaults::normalize([
+            'middleware' => ['web', 123, null, '', 'auth'],
+        ]);
+
+        $this->assertSame(['web', 'auth'], $adminRoute['middleware']);
+    }
+
+    /**
+     * Если после фильтрации middleware пуст, возвращается безопасный default.
+     */
+    public function test_middleware_without_valid_strings_falls_back_to_default(): void
+    {
+        $adminRoute = AdminRouteDefaults::normalize([
+            'middleware' => [123, null, ''],
+        ]);
+
+        $this->assertSame(AdminRouteDefaults::MIDDLEWARE, $adminRoute['middleware']);
+    }
+
+    /**
      * Явные значения конфига сохраняются без изменений.
      */
     public function test_custom_values_are_preserved(): void

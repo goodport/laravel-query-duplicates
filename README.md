@@ -18,6 +18,7 @@ request (`assertDatabaseHas` and similar) are outside the tracked area.
 
 - PHP 8.3+
 - Laravel 12 (`laravel/framework`)
+- `pdo_sqlite` PHP extension
 
 The package is a development and testing tool. Install it in `require-dev`; it is
 not intended for production monitoring.
@@ -26,12 +27,11 @@ not intended for production monitoring.
 
 ```bash
 composer require --dev goodport/laravel-query-duplicates
-php artisan migrate
 ```
 
-The service provider is discovered automatically. Reports are stored in the
-`query_duplicates` table. The package migration is loaded by the provider, so
-`php artisan migrate` creates the table in the configured connection.
+The service provider is discovered automatically. No migration is required:
+`php artisan migrate` is not needed, and the package never writes reports to the
+application database.
 
 Publish the configuration or the views only when you need to change them:
 
@@ -40,9 +40,31 @@ php artisan vendor:publish --tag=query-duplicates-config
 php artisan vendor:publish --tag=query-duplicates-views
 ```
 
-The package no longer writes to the log. Reports are stored in the database, so the
-previous `log_channel` setting and the log-based workflow were removed. This is a
-major change.
+The package no longer writes to the log and no longer uses a database connection
+configured by the application. The previous `log_channel` and `connection` settings
+were removed. This is a major change.
+
+## SQLite storage
+
+The package owns a dedicated SQLite file and registers its own connection named
+`query-duplicates`. The application default connection and the application test
+database are never used.
+
+Default location:
+
+```
+storage/framework/query-duplicates.sqlite
+```
+
+The file and the `query_duplicates` table are created automatically on first use.
+Local application requests, application tests, and the admin page all read and write
+the same file, so reports produced by tests are visible in the local admin page.
+
+The connection uses `busy_timeout = 5000` and `journal_mode = WAL` to reduce
+`database is locked` failures during concurrent tests, and disables foreign key
+constraints.
+
+Delete the SQLite file to reset all reports. There is no migration to roll back.
 
 ## Configuration
 
@@ -52,7 +74,7 @@ return [
     'enabled' => true,
     'strict' => false,
     'threshold' => 2,
-    'connection' => null,
+    'storage_path' => null,
     'admin_route' => [
         'enabled' => true,
         'prefix' => 'query-duplicates',
@@ -67,7 +89,7 @@ return [
 | `enabled` | `true` | Registers the query listener and the global middleware. |
 | `strict` | `false` | Reports the same SQL regardless of bindings. |
 | `threshold` | `2` | Minimum executions before a query is reported. Used for duplicates and N+1. |
-| `connection` | `null` | Connection for the `query_duplicates` table and the admin page. `null` means the application default connection. |
+| `storage_path` | `null` | Path to the package SQLite file. `null` uses `storage/framework/query-duplicates.sqlite`. `:memory:` is used by the package tests. |
 | `admin_route.enabled` | `true` | Registers the admin routes. The page is available even when tracking is disabled. |
 | `admin_route.prefix` | `query-duplicates` | Route prefix. Requests under this prefix are never tracked. |
 | `admin_route.middleware` | `['web', 'can:view-query-duplicates']` | Middleware for the admin routes. |
@@ -138,8 +160,10 @@ Invalid rules, such as an empty `sql`, a non-array `bindings` value, or a negati
 or non-integer binding position, stop configuration parsing with an
 `InvalidArgumentException`.
 
-The configuration uses only arrays and scalar values, with no closures or
-callables, so it is compatible with `php artisan config:cache`. Application-specific
+The published configuration is a literal array of scalars and arrays, with no
+class references, closures or callables. It keeps working after
+`composer install --no-dev` when the package is not present in `vendor`, and it is
+compatible with `php artisan config:cache`. Application-specific
 exclusions belong in the publishing application's configuration, not in the package.
 
 ## Admin page
@@ -236,24 +260,29 @@ The `query_duplicates` table has these columns:
 Indexes cover `report_key` (unique), `updated_at`, `query_count`, `time_ms`, and
 `occurrences`.
 
-### Connection
+### Storage path
 
-`connection` selects the database connection for both the migration and the model:
+The file is created automatically. Override its location when needed:
 
 ```php
-'connection' => 'monitoring',
+'storage_path' => storage_path('framework/query-duplicates.sqlite'),
 ```
 
-If the connection is changed after the first migration, the table has to be moved
-manually: the migration is already recorded in the `migrations` table of the
-previous connection.
+The parent directory is created when it is missing. The package registers the
+`query-duplicates` SQLite connection itself; there is no connection selector in the
+configuration, the admin page, or the database config of the application.
 
-### Database failures
+### Storage failures
 
-A failing recorder never breaks the HTTP response. The first database error is sent
-to the application exception handler once per process, so a missing table does not
-flood the log. The admin page catches a missing table separately and shows a
-`php artisan migrate` hint; other database errors are not masked.
+A failing recorder never breaks the HTTP response. The first storage error is sent
+to the application exception handler once per process, so an unavailable file does
+not flood the log. The admin page catches
+`Goodport\QueryDuplicates\Storage\StorageUnavailableException` separately and shows
+a setup message with the active SQLite path and a request to check write permissions
+for `storage/framework`. Other errors are not masked.
+
+The admin page always displays the active SQLite path. When the file is deleted, the
+next request creates it again and starts a fresh report history.
 
 ## Performance
 
@@ -273,8 +302,8 @@ tracked binding sets per group.
 
 - Only HTTP requests are tracked. Console commands, queue workers, the scheduler
   and Octane are out of scope.
-- There is no automatic retention or scheduled cleanup. Reports stay until the
-  table is cleared manually.
+- There is no automatic retention or scheduled cleanup. Reports stay until they are
+  cleared on the admin page or the SQLite file is deleted.
 - N+1 detection covers lazy Eloquent relations. Manual repeated queries are
   reported as duplicates.
 - `WithoutMiddleware` removes the package middleware, so tracking does not run for

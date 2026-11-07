@@ -2,6 +2,7 @@
 
 namespace Goodport\QueryDuplicates\Tests\Feature;
 
+use Goodport\QueryDuplicates\Storage\SqliteStorage;
 use Goodport\QueryDuplicates\Tests\Support\LoadsPackageConfig;
 use Goodport\QueryDuplicates\Tests\TestCase;
 
@@ -16,7 +17,7 @@ final class ConfigMergeTest extends TestCase
     {
         $this->assertSame(
             $this->packageConfig([
-                'connection' => self::QUERY_DUPLICATE_CONNECTION,
+                'storage_path' => SqliteStorage::MEMORY_PATH,
             ]),
             config('query-duplicates'),
         );

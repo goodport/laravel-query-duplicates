@@ -2,23 +2,14 @@
 
 namespace Goodport\QueryDuplicates\Models;
 
+use Goodport\QueryDuplicates\Storage\SqliteStorage;
 use Illuminate\Database\Eloquent\Model;
 
 final class QueryDuplicate extends Model
 {
     protected $table = 'query_duplicates';
 
-    /**
-     * Returns the configured package connection instead of the application default.
-     */
-    public function getConnectionName(): ?string
-    {
-        $connection = config('query-duplicates.connection');
-
-        return is_string($connection) && $connection !== ''
-            ? $connection
-            : parent::getConnectionName();
-    }
+    protected $connection = SqliteStorage::CONNECTION;
 
     /**
      * @return array<string, string>

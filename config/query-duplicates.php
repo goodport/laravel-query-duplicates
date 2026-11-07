@@ -1,7 +1,5 @@
 <?php
 
-use Goodport\QueryDuplicates\Config\AdminRouteDefaults;
-
 return [
 
     /*
@@ -44,19 +42,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Database connection
+    | Reports storage
     |--------------------------------------------------------------------------
     |
-    | Connection used by the query_duplicates table and the admin page. Null
-    | means the application default connection.
+    | The package owns a dedicated SQLite file for query_duplicates reports.
+    | Null uses storage/framework/query-duplicates.sqlite. A string overrides
+    | the location. The special value ":memory:" is used by the package tests.
     |
-    | The connection is read by the migration too. Changing it after the first
-    | migration requires moving the table manually, because the migration is
-    | already recorded in the migrations table.
+    | The file and table are created automatically; php artisan migrate is not
+    | required. Local application requests, application tests, and the admin
+    | page share this file. Delete the file to reset all reports.
     |
     */
 
-    'connection' => null,
+    'storage_path' => null,
 
     /*
     |--------------------------------------------------------------------------
@@ -71,7 +70,11 @@ return [
     |
     */
 
-    'admin_route' => AdminRouteDefaults::all(),
+    'admin_route' => [
+        'enabled' => true,
+        'prefix' => 'query-duplicates',
+        'middleware' => ['web', 'can:view-query-duplicates'],
+    ],
 
     /*
     |--------------------------------------------------------------------------

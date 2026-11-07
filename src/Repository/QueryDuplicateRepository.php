@@ -3,12 +3,17 @@
 namespace Goodport\QueryDuplicates\Repository;
 
 use Goodport\QueryDuplicates\Models\QueryDuplicate;
+use Goodport\QueryDuplicates\Storage\SqliteStorage;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 
 final class QueryDuplicateRepository
 {
     public const PER_PAGE = 30;
+
+    public function __construct(
+        private readonly SqliteStorage $storage,
+    ) {}
 
     /**
      * Columns accepted by the sort parameter.
@@ -52,6 +57,8 @@ final class QueryDuplicateRepository
      */
     public function getPage(array $filters): LengthAwarePaginator
     {
+        $this->storage->ensure();
+
         $query = QueryDuplicate::query();
 
         $this->applySearch($query, $filters['q'] ?? null);

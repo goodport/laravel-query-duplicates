@@ -4,18 +4,23 @@ namespace Goodport\QueryDuplicates\Recording;
 
 use Goodport\QueryDuplicates\Aggregator\QueryGroup;
 use Goodport\QueryDuplicates\Models\QueryDuplicate;
-use Illuminate\Support\Facades\DB;
+use Goodport\QueryDuplicates\Storage\SqliteStorage;
 use Throwable;
 
 final class QueryDuplicateRecorder
 {
     private bool $errorReported = false;
 
+    public function __construct(
+        private readonly SqliteStorage $storage,
+    ) {}
+
     /**
      * Stores the reported groups of one HTTP request in a single batch.
      *
-     * Database failures never break the application response. The exception is
-     * reported once per process so a missing table does not flood the log.
+     * Storage failures never break the application response. The exception is
+     * reported once per process so an unavailable SQLite storage does not flood
+     * the log.
      *
      * @param  list<QueryGroup>  $groups
      */
@@ -28,6 +33,7 @@ final class QueryDuplicateRecorder
         }
 
         try {
+            $this->storage->ensure();
             $this->write($rows);
         } catch (Throwable $exception) {
             $this->reportError($exception);
@@ -44,9 +50,7 @@ final class QueryDuplicateRecorder
      */
     private function write(array $rows): void
     {
-        $connection = DB::connection(QueryDuplicate::query()->getModel()->getConnectionName());
-
-        $connection->transaction(function () use ($rows): void {
+        QueryDuplicate::query()->getConnection()->transaction(function () use ($rows): void {
             QueryDuplicate::query()->upsert(
                 array_values($rows),
                 ['report_key'],

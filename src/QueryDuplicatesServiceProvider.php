@@ -8,6 +8,7 @@ use Goodport\QueryDuplicates\Config\DuplicateQuerySettings;
 use Goodport\QueryDuplicates\Http\TrackDuplicateQueries;
 use Goodport\QueryDuplicates\Listener\RecordQuery;
 use Goodport\QueryDuplicates\Recording\QueryDuplicateRecorder;
+use Goodport\QueryDuplicates\Storage\SqliteStorage;
 use Goodport\QueryDuplicates\Support\ExcludeMatcher;
 use Goodport\QueryDuplicates\Support\StackRelationQueryDetector;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -51,6 +52,8 @@ class QueryDuplicatesServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->registerStorageConnection();
+
         $this->publishes([
             __DIR__.'/../config/query-duplicates.php' => config_path('query-duplicates.php'),
         ], 'query-duplicates-config');
@@ -59,7 +62,6 @@ class QueryDuplicatesServiceProvider extends ServiceProvider
             __DIR__.'/../resources/views' => resource_path('views/vendor/query-duplicates'),
         ], 'query-duplicates-views');
 
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'query-duplicates');
         $this->loadTranslationsFrom(__DIR__.'/../lang', 'query-duplicates');
 
@@ -95,6 +97,27 @@ class QueryDuplicatesServiceProvider extends ServiceProvider
         $kernel->prependMiddleware(TrackDuplicateQueries::class);
 
         $this->trackingRegistered = true;
+    }
+
+    /**
+     * Registers the dedicated SQLite connection owned by the package.
+     *
+     * The connection never replaces the application default. WAL and a busy
+     * timeout reduce [database is locked] failures during concurrent tests.
+     */
+    private function registerStorageConnection(): void
+    {
+        $this->app['config']->set(
+            'database.connections.'.SqliteStorage::CONNECTION,
+            [
+                'driver' => 'sqlite',
+                'database' => (new SqliteStorage)->path(),
+                'prefix' => '',
+                'foreign_key_constraints' => false,
+                'busy_timeout' => 5000,
+                'journal_mode' => 'WAL',
+            ],
+        );
     }
 
     /**

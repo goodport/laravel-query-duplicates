@@ -2,10 +2,11 @@
 
 namespace Goodport\QueryDuplicates\Tests\Feature\Admin;
 
+use Goodport\QueryDuplicates\Storage\SqliteStorage;
+use Goodport\QueryDuplicates\Storage\StorageUnavailableException;
 use Goodport\QueryDuplicates\Tests\TestCase;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 final class ClearTest extends TestCase
 {
@@ -29,13 +30,12 @@ final class ClearTest extends TestCase
     }
 
     /**
-     * Clearing without the table redirects to the setup hint without a success message.
+     * Clearing without available storage redirects to the setup hint without a success message.
      */
-    public function test_clear_without_table_redirects_without_success_message(): void
+    public function test_clear_without_available_storage_redirects_without_success_message(): void
     {
         $this->allowQueryDuplicates();
-
-        Schema::connection(config('query-duplicates.connection'))->drop('query_duplicates');
+        $this->makeStorageUnavailable();
 
         $this->post(route('query-duplicates.clear'))
             ->assertRedirect(route('query-duplicates.index'))
@@ -43,7 +43,7 @@ final class ClearTest extends TestCase
 
         $this->get(route('query-duplicates.index'))
             ->assertOk()
-            ->assertSee(trans('query-duplicates::query-duplicates.missing_table'))
+            ->assertSee(trans('query-duplicates::query-duplicates.setup_title'))
             ->assertDontSee(trans('query-duplicates::query-duplicates.cleared'));
     }
 
@@ -55,7 +55,7 @@ final class ClearTest extends TestCase
         $this->allowQueryDuplicates();
         $this->insertDuplicate();
 
-        DB::connection(config('query-duplicates.connection'))->statement(
+        DB::connection(SqliteStorage::CONNECTION)->statement(
             'CREATE TRIGGER prevent_query_duplicate_clear BEFORE DELETE ON query_duplicates '.
             "BEGIN SELECT RAISE(ABORT, 'clear blocked'); END",
         );
@@ -63,5 +63,22 @@ final class ClearTest extends TestCase
         $this->expectException(QueryException::class);
 
         $this->withoutExceptionHandling()->post(route('query-duplicates.clear'));
+    }
+
+    /**
+     * Replaces the package storage with a double that cannot be opened.
+     */
+    private function makeStorageUnavailable(): void
+    {
+        $this->app->instance(SqliteStorage::class, new class extends SqliteStorage
+        {
+            public function ensure(): void
+            {
+                throw new StorageUnavailableException(
+                    $this->path(),
+                    'simulated storage failure',
+                );
+            }
+        });
     }
 }

@@ -160,6 +160,15 @@
             font-size: 13.5px;
         }
 
+        .storage-path {
+            max-width: 90ch;
+            margin: 6px 0 0;
+            color: var(--qd-faint);
+            font-family: var(--qd-mono);
+            font-size: 11.5px;
+            overflow-wrap: anywhere;
+        }
+
         .clear-form {
             margin: 0;
             flex: none;
@@ -292,6 +301,14 @@
             margin: 0;
             color: var(--qd-ink);
             font-size: 13.5px;
+        }
+
+        .setup-reason {
+            margin: 6px 0 0;
+            color: var(--qd-muted);
+            font-family: var(--qd-mono);
+            font-size: 12px;
+            overflow-wrap: anywhere;
         }
 
         .setup-hint {
@@ -940,6 +957,7 @@
         <div class="masthead-copy">
             <h1 class="title">{{ trans('query-duplicates::query-duplicates.title') }}</h1>
             <p class="subtitle">{{ trans('query-duplicates::query-duplicates.subtitle') }}</p>
+            <p class="storage-path">{{ trans('query-duplicates::query-duplicates.storage_path', ['path' => $storagePath]) }}</p>
         </div>
 
         @if ($duplicates !== null && ($hasFilters || $duplicates->total() > 0))
@@ -984,7 +1002,8 @@
             </svg>
             <div>
                 <h2 class="setup-title">{{ trans('query-duplicates::query-duplicates.setup_title') }}</h2>
-                <p class="setup-text">{{ trans('query-duplicates::query-duplicates.missing_table') }}</p>
+                <p class="setup-text">{{ trans('query-duplicates::query-duplicates.storage_unavailable', ['path' => $storagePath]) }}</p>
+                <p class="setup-reason">{{ trans('query-duplicates::query-duplicates.storage_reason', ['reason' => $storageError]) }}</p>
                 <p class="setup-hint">{{ trans('query-duplicates::query-duplicates.setup_hint') }}</p>
             </div>
         </section>

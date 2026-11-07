@@ -69,16 +69,24 @@ final class AdminRouteDefaults
     }
 
     /**
-     * Returns a non-empty middleware list or the default one.
+     * Returns a non-empty list of string middleware or the default one.
      *
      * @return list<string>
      */
     private static function normalizeMiddleware(mixed $value): array
     {
-        if (! is_array($value) || $value === []) {
+        if (! is_array($value)) {
             return self::MIDDLEWARE;
         }
 
-        return array_values($value);
+        $middleware = [];
+
+        foreach ($value as $item) {
+            if (is_string($item) && trim($item) !== '') {
+                $middleware[] = trim($item);
+            }
+        }
+
+        return $middleware === [] ? self::MIDDLEWARE : $middleware;
     }
 }

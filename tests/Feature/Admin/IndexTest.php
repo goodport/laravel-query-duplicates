@@ -30,6 +30,20 @@ final class IndexTest extends TestCase
     }
 
     /**
+     * The page shows the active SQLite storage path.
+     */
+    public function test_page_shows_active_storage_path(): void
+    {
+        $this->allowQueryDuplicates();
+
+        $this->get(route('query-duplicates.index'))
+            ->assertOk()
+            ->assertSee(trans('query-duplicates::query-duplicates.storage_path', [
+                'path' => (string) config('query-duplicates.storage_path'),
+            ]));
+    }
+
+    /**
      * Search matches route, path and SQL case-insensitively.
      */
     public function test_search_matches_route_path_and_sql(): void
