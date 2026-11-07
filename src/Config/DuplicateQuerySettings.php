@@ -13,7 +13,6 @@ final readonly class DuplicateQuerySettings
         public bool $enabled,
         public bool $strict,
         public int $threshold,
-        public ?string $logChannel,
         public array $exclude,
     ) {}
 
@@ -47,7 +46,6 @@ final readonly class DuplicateQuerySettings
             enabled: $enabled,
             strict: self::boolean($config, 'strict'),
             threshold: self::integer($config, 'threshold', 2),
-            logChannel: self::channel($config['log_channel'] ?? null),
             exclude: self::exclusions($config),
         );
     }
@@ -63,7 +61,7 @@ final readonly class DuplicateQuerySettings
             return false;
         }
 
-        $parsed = self::parseBoolean($value);
+        $parsed = BooleanValue::tryParse($value);
 
         if ($parsed === null) {
             throw new InvalidArgumentException(
@@ -115,7 +113,7 @@ final readonly class DuplicateQuerySettings
      */
     private static function boolean(array $config, string $key): bool
     {
-        $parsed = self::parseBoolean($config[$key] ?? null);
+        $parsed = BooleanValue::tryParse($config[$key] ?? null);
 
         if ($parsed === null) {
             throw new InvalidArgumentException(
@@ -124,52 +122,6 @@ final readonly class DuplicateQuerySettings
         }
 
         return $parsed;
-    }
-
-    /**
-     * Parses a boolean value from the configuration.
-     */
-    private static function parseBoolean(mixed $value): ?bool
-    {
-        if (is_bool($value)) {
-            return $value;
-        }
-
-        if (is_int($value) && ($value === 0 || $value === 1)) {
-            return $value === 1;
-        }
-
-        if (is_string($value)) {
-            $normalized = strtolower(trim($value));
-
-            if ($normalized === '1' || $normalized === 'true') {
-                return true;
-            }
-
-            if ($normalized === '0' || $normalized === 'false') {
-                return false;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Reads the optional log channel name.
-     */
-    private static function channel(mixed $value): ?string
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        if (! is_string($value)) {
-            throw new InvalidArgumentException(
-                'The [query-duplicates.log_channel] config value must be null or a non-empty string.',
-            );
-        }
-
-        return $value;
     }
 
     /**

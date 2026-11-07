@@ -1,6 +1,6 @@
 <?php
 
-namespace Goodport\QueryDuplicates\Logging;
+namespace Goodport\QueryDuplicates\Recording;
 
 final readonly class QueryRequestContext
 {

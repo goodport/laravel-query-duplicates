@@ -21,7 +21,6 @@ final class DuplicateQuerySettingsTest extends TestCase
         $this->assertTrue($settings->enabled);
         $this->assertFalse($settings->strict);
         $this->assertSame(2, $settings->threshold);
-        $this->assertNull($settings->logChannel);
         $this->assertSame([], $settings->exclude);
     }
 

@@ -15,6 +15,6 @@ final class EmptyExclusionTest extends TestCase
     {
         $this->get(route('testing.duplicates.excluded-substring'))->assertOk();
 
-        $this->assertReportCount(2);
+        $this->assertDuplicateCount(2);
     }
 }

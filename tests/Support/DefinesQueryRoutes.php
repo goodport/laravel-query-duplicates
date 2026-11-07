@@ -28,6 +28,12 @@ trait DefinesQueryRoutes
             return response('ok');
         })->name('testing.duplicates.parameter');
 
+        $router->get('/duplicates/repeat/{times}', function (int $times) {
+            $this->runQueryTimes($times, 'select ? as id', [7]);
+
+            return response('ok');
+        })->whereNumber('times')->name('testing.duplicates.repeat');
+
         $router->get('/duplicates/different-bindings', function () {
             foreach ([1, 2, 3] as $id) {
                 DB::select('select ? as id', [$id]);
@@ -41,6 +47,13 @@ trait DefinesQueryRoutes
 
             return response('ok');
         })->name('testing.duplicates.secondary');
+
+        $router->get('/duplicates/multiple-connections', function () {
+            $this->runQueryTwice('select ? as id', [7], 'testing');
+            $this->runQueryTwice('select ? as id', [7], 'secondary');
+
+            return response('ok');
+        })->name('testing.duplicates.multiple-connections');
 
         $router->get('/duplicates/excluded-substring', function () {
             $this->runQueryTwice('select 1 as sessions');

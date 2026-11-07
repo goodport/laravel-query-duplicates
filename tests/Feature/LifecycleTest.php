@@ -3,12 +3,8 @@
 namespace Goodport\QueryDuplicates\Tests\Feature;
 
 use Goodport\QueryDuplicates\Aggregator\DuplicateQueryAggregator;
-use Goodport\QueryDuplicates\Logging\DuplicateQueryWriter;
-use Goodport\QueryDuplicates\Logging\ReportDeduplicator;
 use Goodport\QueryDuplicates\Tests\TestCase;
-use Psr\Log\AbstractLogger;
 use RuntimeException;
-use Stringable;
 
 final class LifecycleTest extends TestCase
 {
@@ -34,38 +30,40 @@ final class LifecycleTest extends TestCase
         $this->get(route('testing.duplicates.identical'))->assertOk();
         $this->get(route('testing.duplicates.secondary'))->assertOk();
 
-        $contexts = $this->reportContexts();
+        $rows = $this->duplicateRows()->keyBy('route');
 
-        $this->assertCount(2, $contexts);
-        $this->assertSame(3, $contexts[0]['query_count']);
-        $this->assertSame(2, $contexts[1]['query_count']);
+        $this->assertCount(2, $rows);
+        $this->assertSame(3, $rows['testing.duplicates.identical']->query_count);
+        $this->assertSame(2, $rows['testing.duplicates.secondary']->query_count);
     }
 
     /**
-     * An identical report is written only once.
+     * An identical report updates the same row and counts another occurrence.
      */
     public function test_identical_report_is_written_once(): void
     {
         $this->get(route('testing.duplicates.identical'))->assertOk();
         $this->get(route('testing.duplicates.identical'))->assertOk();
 
-        $context = $this->singleReportContext();
+        $row = $this->singleDuplicate();
 
-        $this->assertSame(3, $context['query_count']);
+        $this->assertSame(3, $row->query_count);
+        $this->assertSame(2, $row->occurrences);
     }
 
     /**
-     * Reports with different path parameters and SQL literals are written only once.
+     * Reports with different path parameters and SQL literals update one row.
      */
     public function test_report_with_different_parameters_is_written_once(): void
     {
         $this->get(route('testing.duplicates.parameter', ['id' => 27]))->assertOk();
         $this->get(route('testing.duplicates.parameter', ['id' => 9]))->assertOk();
 
-        $context = $this->singleReportContext();
+        $row = $this->singleDuplicate();
 
-        $this->assertSame('duplicates/parameter/27', $context['path']);
-        $this->assertStringContainsString('in (27)', $context['sql']);
+        $this->assertSame('duplicates/parameter/9', $row->path);
+        $this->assertStringContainsString('in (9)', $row->sql);
+        $this->assertSame(2, $row->occurrences);
     }
 
     /**
@@ -75,11 +73,13 @@ final class LifecycleTest extends TestCase
     {
         $this->followingRedirects()->get(route('testing.duplicates.redirect'))->assertOk();
 
-        $contexts = $this->reportContexts();
+        $rows = $this->duplicateRows();
 
-        $this->assertCount(2, $contexts);
-        $this->assertSame('select ? as redirect', $contexts[0]['sql']);
-        $this->assertSame('select ? as id', $contexts[1]['sql']);
+        $this->assertCount(2, $rows);
+        $this->assertEqualsCanonicalizing(
+            ['select ? as redirect', 'select ? as id'],
+            $rows->pluck('sql')->all(),
+        );
     }
 
     /**
@@ -89,7 +89,7 @@ final class LifecycleTest extends TestCase
     {
         $this->get(route('testing.duplicates.exception'))->assertStatus(500);
 
-        $this->assertSame('select ? as exception', $this->singleReportContext()['sql']);
+        $this->assertSame('select ? as exception', $this->singleDuplicate()->sql);
     }
 
     /**
@@ -106,43 +106,22 @@ final class LifecycleTest extends TestCase
             $this->assertSame('Route failed.', $exception->getMessage());
         }
 
-        $this->assertReportCount(0);
+        $this->assertDuplicateCount(0);
 
         $this->get(route('testing.duplicates.identical'))->assertOk();
 
-        $context = $this->singleReportContext();
+        $row = $this->singleDuplicate();
 
-        $this->assertSame('select ? as id', $context['sql']);
-        $this->assertSame(3, $context['query_count']);
+        $this->assertSame('select ? as id', $row->sql);
+        $this->assertSame(3, $row->query_count);
     }
 
     /**
-     * A writer failure does not leave the aggregator active and does not keep the data.
+     * The aggregator is inactive and empty after the report is stored.
      */
-    public function test_writer_failure_resets_aggregator(): void
+    public function test_terminate_leaves_aggregator_inactive(): void
     {
-        $throwingLogger = new class extends AbstractLogger
-        {
-            public function log($level, string|Stringable $message, array $context = []): void
-            {
-                throw new RuntimeException('Writer failed.');
-            }
-        };
-
-        $this->app->instance(
-            DuplicateQueryWriter::class,
-            new DuplicateQueryWriter(
-                logger: $throwingLogger,
-                deduplicator: $this->app->make(ReportDeduplicator::class),
-            ),
-        );
-
-        try {
-            $this->get(route('testing.duplicates.identical'))->assertOk();
-            $this->fail('The writer exception was expected.');
-        } catch (RuntimeException $exception) {
-            $this->assertSame('Writer failed.', $exception->getMessage());
-        }
+        $this->get(route('testing.duplicates.identical'))->assertOk();
 
         $aggregator = $this->app->make(DuplicateQueryAggregator::class);
 

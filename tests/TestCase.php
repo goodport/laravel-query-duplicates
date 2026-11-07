@@ -2,23 +2,28 @@
 
 namespace Goodport\QueryDuplicates\Tests;
 
+use Goodport\QueryDuplicates\Aggregator\QueryGroup;
+use Goodport\QueryDuplicates\Models\QueryDuplicate;
 use Goodport\QueryDuplicates\QueryDuplicatesServiceProvider;
-use Goodport\QueryDuplicates\Tests\Support\DefinesLogChannels;
+use Goodport\QueryDuplicates\Tests\Support\DefinesQueryDuplicateDatabase;
 use Goodport\QueryDuplicates\Tests\Support\DefinesQueryRoutes;
 use Goodport\QueryDuplicates\Tests\Support\FakeQueryConnection;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel as KernelContract;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Gate;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
 {
-    use DefinesLogChannels;
+    use DefinesQueryDuplicateDatabase;
     use DefinesQueryRoutes;
 
     protected bool $packageEnabled = true;
 
-    protected ?string $logChannel = 'query-duplicates';
+    protected bool $adminRoutesEnabled = true;
 
     protected ?bool $strict = null;
 
@@ -29,6 +34,8 @@ abstract class TestCase extends Orchestra
      */
     protected ?array $exclude = null;
 
+    private int $duplicateSequence = 0;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -38,12 +45,12 @@ abstract class TestCase extends Orchestra
             static fn (array $config, string $name): FakeQueryConnection => new FakeQueryConnection($name),
         );
 
-        $this->clearLogFiles($this->app);
+        $this->migrateQueryDuplicateTable();
     }
 
     protected function tearDown(): void
     {
-        $this->clearLogFiles($this->app);
+        Carbon::setTestNow();
 
         parent::tearDown();
     }
@@ -61,7 +68,9 @@ abstract class TestCase extends Orchestra
      */
     protected function defineEnvironment($app): void
     {
-        $this->defineLogChannels($app);
+        $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('a', 32)));
+
+        $this->defineQueryDuplicateDatabase($app);
 
         $app['config']->set('database.default', 'testing');
         $app['config']->set('database.connections.testing', [
@@ -74,7 +83,7 @@ abstract class TestCase extends Orchestra
         ]);
 
         $app['config']->set('query-duplicates.enabled', $this->packageEnabled);
-        $app['config']->set('query-duplicates.log_channel', $this->logChannel);
+        $app['config']->set('query-duplicates.admin_route.enabled', $this->adminRoutesEnabled);
 
         $this->setOptionalPackageConfig($app);
     }
@@ -91,90 +100,72 @@ abstract class TestCase extends Orchestra
     }
 
     /**
-     * Returns group reports in the order they appear.
+     * Allows access to the package admin page.
+     */
+    protected function allowQueryDuplicates(): void
+    {
+        Gate::define('view-query-duplicates', static fn (?object $user = null): bool => true);
+    }
+
+    /**
+     * Returns stored reports in insertion order.
      *
-     * @return list<array<string, mixed>>
+     * @return Collection<int, QueryDuplicate>
      */
-    protected function loggedRecords(string $channel = 'query-duplicates'): array
+    protected function duplicateRows(): Collection
     {
-        return array_values(array_filter(
-            $this->allLogRecords($channel),
-            static fn (array $record): bool => isset($record['context']['query_count']),
-        ));
+        return QueryDuplicate::query()->orderBy('id')->get();
     }
 
     /**
-     * Asserts the number of report entries in the channel.
+     * Returns the only stored report and asserts that it is the only one.
      */
-    protected function assertReportCount(int $expected, string $channel = 'query-duplicates'): void
+    protected function singleDuplicate(): QueryDuplicate
     {
-        $this->assertCount($expected, $this->loggedRecords($channel));
+        $rows = $this->duplicateRows();
+
+        $this->assertCount(1, $rows, 'Exactly one report row was expected.');
+
+        return $rows->first();
     }
 
     /**
-     * Returns the report contexts in log order.
+     * Asserts the number of stored reports.
+     */
+    protected function assertDuplicateCount(int $expected): void
+    {
+        $this->assertSame($expected, QueryDuplicate::query()->count());
+    }
+
+    /**
+     * Inserts a report row with explicit attributes.
      *
-     * @return list<array<string, mixed>>
+     * @param  array<string, mixed>  $overrides
      */
-    protected function reportContexts(string $channel = 'query-duplicates'): array
+    protected function insertDuplicate(array $overrides = []): QueryDuplicate
     {
-        return array_column($this->loggedRecords($channel), 'context');
-    }
+        $reportedAt = now();
+        $reportKey = $overrides['report_key'] ?? hash('sha256', 'report-'.++$this->duplicateSequence);
 
-    /**
-     * Returns the only report record and asserts that it is the only one.
-     *
-     * @return array<string, mixed>
-     */
-    protected function singleReportRecord(string $channel = 'query-duplicates'): array
-    {
-        $records = $this->loggedRecords($channel);
+        QueryDuplicate::query()->insert(array_merge([
+            'report_key' => $reportKey,
+            'method' => 'GET',
+            'path' => 'posts',
+            'route' => 'posts.index',
+            'sql' => 'select * from `posts`',
+            'query_count' => 2,
+            'time_ms' => 1.5,
+            'type' => QueryGroup::TYPE__DUPLICATE,
+            'occurrences' => 1,
+            'created_at' => $reportedAt,
+            'updated_at' => $reportedAt,
+        ], $overrides));
 
-        $this->assertCount(1, $records, 'Exactly one report entry was expected.');
+        $row = QueryDuplicate::query()->where('report_key', $reportKey)->first();
 
-        return $records[0];
-    }
+        $this->assertInstanceOf(QueryDuplicate::class, $row);
 
-    /**
-     * Returns the only report context and asserts that it is the only one.
-     *
-     * @return array<string, mixed>
-     */
-    protected function singleReportContext(string $channel = 'query-duplicates'): array
-    {
-        return $this->singleReportRecord($channel)['context'];
-    }
-
-    /**
-     * Returns all channel records, including service entries.
-     *
-     * @return list<array<string, mixed>>
-     */
-    protected function allLogRecords(string $channel = 'query-duplicates'): array
-    {
-        $path = $this->logFilePath($channel);
-
-        if (! is_file($path)) {
-            return [];
-        }
-
-        $records = [];
-
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-            $records[] = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
-        }
-
-        return $records;
-    }
-
-    /**
-     * Returns the raw log file contents.
-     */
-    protected function rawLogContents(string $channel = 'query-duplicates'): string
-    {
-        $path = $this->logFilePath($channel);
-
-        return is_file($path) ? (string) file_get_contents($path) : '';
+        return $row;
     }
 
     /**
@@ -191,10 +182,5 @@ abstract class TestCase extends Orchestra
         foreach ($overrides as $key => $value) {
             $app['config']->set("query-duplicates.{$key}", $value);
         }
-    }
-
-    private function logFilePath(string $channel): string
-    {
-        return $this->app->storagePath('logs/'.$this->logFileName($channel));
     }
 }

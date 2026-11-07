@@ -4,8 +4,9 @@ namespace Goodport\QueryDuplicates\Http;
 
 use Closure;
 use Goodport\QueryDuplicates\Aggregator\DuplicateQueryAggregator;
-use Goodport\QueryDuplicates\Logging\DuplicateQueryWriter;
-use Goodport\QueryDuplicates\Logging\QueryRequestContext;
+use Goodport\QueryDuplicates\Config\AdminRouteDefaults;
+use Goodport\QueryDuplicates\Recording\QueryDuplicateRecorder;
+use Goodport\QueryDuplicates\Recording\QueryRequestContext;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -13,14 +14,21 @@ final class TrackDuplicateQueries
 {
     public function __construct(
         private readonly DuplicateQueryAggregator $aggregator,
-        private readonly DuplicateQueryWriter $writer,
+        private readonly QueryDuplicateRecorder $recorder,
     ) {}
 
     /**
      * Starts collection for the duration of the HTTP request.
+     *
+     * Requests handled by the package admin page are skipped so the page does not
+     * report its own search, pagination, and clear queries.
      */
     public function handle(Request $request, Closure $next): Response
     {
+        if ($this->isAdminRequest($request)) {
+            return $next($request);
+        }
+
         $this->aggregator->start();
 
         try {
@@ -31,10 +39,14 @@ final class TrackDuplicateQueries
     }
 
     /**
-     * Writes the report and resets the collection area.
+     * Stores the report and resets the collection area.
      */
     public function terminate(Request $request, Response $response): void
     {
+        if ($this->isAdminRequest($request)) {
+            return;
+        }
+
         try {
             $requestContext = new QueryRequestContext(
                 method: $request->getMethod(),
@@ -42,11 +54,20 @@ final class TrackDuplicateQueries
                 route: $request->route()?->getName(),
             );
 
-            foreach ($this->aggregator->report() as $group) {
-                $this->writer->write($requestContext, $group);
-            }
+            $this->recorder->record($requestContext, $this->aggregator->report());
         } finally {
             $this->aggregator->reset();
         }
+    }
+
+    /**
+     * Tells whether the request targets the package admin prefix.
+     */
+    private function isAdminRequest(Request $request): bool
+    {
+        $adminRoute = AdminRouteDefaults::normalize(config('query-duplicates.admin_route'));
+        $prefix = trim($adminRoute['prefix'], '/');
+
+        return $prefix !== '' && $request->is($prefix, $prefix.'/*');
     }
 }

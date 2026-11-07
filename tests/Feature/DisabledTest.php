@@ -11,8 +11,6 @@ final class DisabledTest extends TestCase
 {
     protected bool $packageEnabled = false;
 
-    protected ?string $logChannel = 'missing-channel';
-
     /**
      * @param  Application  $app
      */
@@ -39,13 +37,13 @@ final class DisabledTest extends TestCase
     }
 
     /**
-     * Queries are not logged when the package is disabled.
+     * Queries are not tracked when the package is disabled.
      */
     public function test_queries_are_not_logged_while_disabled(): void
     {
         $this->get(route('testing.duplicates.identical'))->assertOk();
 
-        $this->assertReportCount(0);
+        $this->assertDuplicateCount(0);
     }
 
     /**

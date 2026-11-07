@@ -9,13 +9,16 @@ final class ConfigMergeTest extends TestCase
 {
     use LoadsPackageConfig;
 
-    protected ?string $logChannel = null;
-
     /**
      * The package config is merged with the application settings.
      */
     public function test_package_config_is_merged(): void
     {
-        $this->assertSame($this->packageConfig(), config('query-duplicates'));
+        $this->assertSame(
+            $this->packageConfig([
+                'connection' => self::QUERY_DUPLICATE_CONNECTION,
+            ]),
+            config('query-duplicates'),
+        );
     }
 }

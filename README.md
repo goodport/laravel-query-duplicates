@@ -1,6 +1,7 @@
 # Laravel Query Duplicates
 
-Find duplicated SQL queries and N+1 queries inside Laravel HTTP requests.
+Find duplicated SQL queries and N+1 queries inside Laravel HTTP requests and inspect
+them on a small built-in page.
 
 The package reports two kinds of problems:
 
@@ -25,16 +26,23 @@ not intended for production monitoring.
 
 ```bash
 composer require --dev goodport/laravel-query-duplicates
+php artisan migrate
 ```
 
-The service provider is discovered automatically. The package is enabled by default
-and writes reports to the application's default log channel.
+The service provider is discovered automatically. Reports are stored in the
+`query_duplicates` table. The package migration is loaded by the provider, so
+`php artisan migrate` creates the table in the configured connection.
 
-Publish the configuration file only when you need to change the defaults:
+Publish the configuration or the views only when you need to change them:
 
 ```bash
 php artisan vendor:publish --tag=query-duplicates-config
+php artisan vendor:publish --tag=query-duplicates-views
 ```
+
+The package no longer writes to the log. Reports are stored in the database, so the
+previous `log_channel` setting and the log-based workflow were removed. This is a
+major change.
 
 ## Configuration
 
@@ -44,7 +52,12 @@ return [
     'enabled' => true,
     'strict' => false,
     'threshold' => 2,
-    'log_channel' => null,
+    'connection' => null,
+    'admin_route' => [
+        'enabled' => true,
+        'prefix' => 'query-duplicates',
+        'middleware' => ['web', 'can:view-query-duplicates'],
+    ],
     'exclude' => [],
 ];
 ```
@@ -54,28 +67,11 @@ return [
 | `enabled` | `true` | Registers the query listener and the global middleware. |
 | `strict` | `false` | Reports the same SQL regardless of bindings. |
 | `threshold` | `2` | Minimum executions before a query is reported. Used for duplicates and N+1. |
-| `log_channel` | `null` | Log channel name; `null` means the default channel. |
+| `connection` | `null` | Connection for the `query_duplicates` table and the admin page. `null` means the application default connection. |
+| `admin_route.enabled` | `true` | Registers the admin routes. The page is available even when tracking is disabled. |
+| `admin_route.prefix` | `query-duplicates` | Route prefix. Requests under this prefix are never tracked. |
+| `admin_route.middleware` | `['web', 'can:view-query-duplicates']` | Middleware for the admin routes. |
 | `exclude` | `[]` | SQL substrings and rules with optional bindings excluded from tracking. |
-
-A dedicated log channel keeps reports separate from the regular application log:
-
-```php
-// config/logging.php
-'query-duplicates' => [
-    'driver' => 'single',
-    'path' => storage_path('logs/query-duplicates.log'),
-    'level' => 'debug',
-],
-```
-
-```php
-// config/query-duplicates.php
-'log_channel' => 'query-duplicates',
-```
-
-When the package is enabled, a channel that is not declared in `config/logging.php`
-fails during provider boot with a clear exception instead of silently writing to
-the emergency logger.
 
 ### Reporting rules
 
@@ -85,13 +81,25 @@ the emergency logger.
 - **Duplicate**: the same SQL ran at least `threshold` times. In non-strict mode,
   the bindings must also match. In strict mode, bindings are ignored.
 - N+1 has priority: a relation query is reported as `n+1`, not as a duplicate.
-- An identical report is written once per hour. Reports are considered identical
-  when the method, route (or normalized path), normalized SQL and type match.
-  Path parameters and SQL literals are replaced with placeholders for this
-  comparison, so repeated requests for different records do not add duplicate
-  log entries.
+- A single execution is never reported.
 
-A single execution is never reported.
+### Report identity
+
+One report is stored as one row in `query_duplicates`. The row is identified by a
+SHA-256 key built from:
+
+- the HTTP method;
+- the route name, or the normalized path when the route has no name;
+- the normalized SQL;
+- the report type.
+
+Numeric path segments become `{id}`, UUID segments become `{uuid}`, and string and
+numeric SQL literals become `?`. SQL case is preserved. Repeated requests for
+different records therefore update the same row and increase `occurrences` instead
+of creating near-duplicates.
+
+Unnamed routes with slugs produce a separate row for each distinct path. This is an
+accepted v1 limitation.
 
 ### Exclusions
 
@@ -123,46 +131,129 @@ The query is excluded only when the SQL contains `sql` and every listed binding
 position matches the query bindings strictly (`===`). Positions that are not
 listed in the rule, including dynamic identifiers and types, are not checked.
 A position that is listed in the rule but missing from the query does not match.
-An empty `bindings` array excludes by SQL only. Several entries are combined
-with OR, and string entries keep their previous behavior.
+An empty `bindings` array excludes by SQL only. Several entries are combined with
+OR, and string entries keep their previous behavior.
 
-Invalid rules, such as an empty `sql`, a non-array `bindings` value, or a
-negative or non-integer binding position, stop configuration parsing with an
+Invalid rules, such as an empty `sql`, a non-array `bindings` value, or a negative
+or non-integer binding position, stop configuration parsing with an
 `InvalidArgumentException`.
 
 The configuration uses only arrays and scalar values, with no closures or
-callables, so it is compatible with `php artisan config:cache`. Application
-specific exclusions belong in the publishing application's configuration, not
-in the package.
+callables, so it is compatible with `php artisan config:cache`. Application-specific
+exclusions belong in the publishing application's configuration, not in the package.
 
-## Log output
+## Admin page
 
-One entry is written per reported query group in `terminate()`; reports that were
-already written with the same identity are skipped for one hour. In a normal HTTP
-lifecycle this happens after the response has been sent; in tests `terminate()` is
-called before `call()` returns.
+The package registers two routes:
 
-```json
+| Method | Path | Route name |
+| --- | --- | --- |
+| `GET` | `{prefix}` | `query-duplicates.index` |
+| `POST` | `{prefix}/clear` | `query-duplicates.clear` |
+
+The package does not define the `view-query-duplicates` gate. With the default
+middleware the page returns 403 until the application defines the gate:
+
+```php
+use Illuminate\Support\Facades\Gate;
+
+public function boot(): void
 {
-    "message": "Duplicate query: 3 executions, 2.96 ms.",
-    "context": {
-        "method": "GET",
-        "path": "users/42/edit",
-        "route": "users.edit",
-        "sql": "select exists(select * from `posts` where `user_id` = ?) as `exists`",
-        "query_count": 3,
-        "time_ms": 2.96,
-        "type": "duplicate"
-    }
+    Gate::define('view-query-duplicates', function ($user): bool {
+        return $user->isAdmin();
+    });
 }
 ```
 
-- `query_count` — how many times the SQL ran during the request.
-- `time_ms` — total time of all executions.
-- `type` — `duplicate` or `n+1`.
+Access can also be restricted with application middleware instead of a gate:
 
-The request path is logged without the query string, so signed URLs and tokens in
-query parameters do not reach the log.
+```php
+'admin_route' => [
+    'enabled' => true,
+    'prefix' => 'query-duplicates',
+    'middleware' => ['web', 'isAdmin'],
+],
+```
+
+The page supports:
+
+- search by `route`, `path`, and `sql`, case-insensitive;
+- filtering by `type` (`duplicate` or `n+1`);
+- sorting by `updated_at`, `query_count`, `time_ms`, and `occurrences`;
+- pagination with 30 rows per page;
+- clearing every report with a POST request, CSRF protection, and confirmation;
+- copying a row as JSON for sharing with a developer or agent.
+
+The copied JSON has the same keys as the previous log context:
+
+```json
+{
+    "method": "GET",
+    "path": "users/42/edit",
+    "route": "users.edit",
+    "sql": "select exists(select * from `posts` where `user_id` = ?) as `exists`",
+    "query_count": 3,
+    "time_ms": 2.96,
+    "type": "duplicate"
+}
+```
+
+The page is self-contained: Blade with inline CSS and JavaScript, no CDN and no
+dependency on the application's CSS framework. Requests to the admin prefix are
+not tracked, so the page never reports its own queries.
+
+The inline styles and script may need a Content-Security-Policy exception. A strict
+policy usually has to allow `style-src 'unsafe-inline'` and
+`script-src 'unsafe-inline'` (or a matching nonce) for this page to render and for
+the copy button to work.
+
+> **SQL may contain literal values.** The `sql` column stores the statement exactly
+> as `QueryExecuted` returned it, with placeholders and **without** substituting
+> bindings. If the application inlines values into the SQL string itself (raw
+> expressions, hand-built statements with literals), those values are written to
+> `query_duplicates` and included in the copied JSON. Treat the table and the
+> copied JSON as application data, not as sanitized diagnostics.
+
+## Table
+
+The `query_duplicates` table has these columns:
+
+| Column | Type | Description |
+| --- | --- | --- |
+| `id` | primary key | Row identifier. |
+| `report_key` | `char(64)` unique | SHA-256 identity of the report. |
+| `method` | `string(10)` | HTTP method. |
+| `path` | `text` | Last seen path without the query string. |
+| `route` | `string(255)` nullable | Route name, or `null`. |
+| `sql` | `text` | Exact SQL returned by `QueryExecuted`, without substituted bindings. |
+| `query_count` | unsigned integer | Executions in the last reported request. |
+| `time_ms` | `decimal(10,2)` | Total time of the last reported request. |
+| `type` | `string(10)` | `duplicate` or `n+1`. |
+| `occurrences` | unsigned integer | Number of times the report was seen. |
+| `created_at` | timestamp | First occurrence. |
+| `updated_at` | timestamp | Last occurrence. |
+
+Indexes cover `report_key` (unique), `updated_at`, `query_count`, `time_ms`, and
+`occurrences`.
+
+### Connection
+
+`connection` selects the database connection for both the migration and the model:
+
+```php
+'connection' => 'monitoring',
+```
+
+If the connection is changed after the first migration, the table has to be moved
+manually: the migration is already recorded in the `migrations` table of the
+previous connection.
+
+### Database failures
+
+A failing recorder never breaks the HTTP response. The first database error is sent
+to the application exception handler once per process, so a missing table does not
+flood the log. The admin page catches a missing table separately and shows a
+`php artisan migrate` hint; other database errors are not masked.
 
 ## Performance
 
@@ -172,8 +263,8 @@ query parameters do not reach the log.
 - Enabled inside an HTTP request: one `md5` of the SQL and one binding
   fingerprint per execution. The call stack is inspected once for every new query
   and on each execution of a relation query until it is confirmed as N+1.
-- When a report is written: one cache add for its identity. Repeated identical
-  reports are skipped.
+- When a report is stored: one batched `upsert` and one `increment` per request,
+  regardless of the number of reported groups.
 
 Memory is bounded by the number of unique SQL statements and by a fixed limit of
 tracked binding sets per group.
@@ -182,9 +273,8 @@ tracked binding sets per group.
 
 - Only HTTP requests are tracked. Console commands, queue workers, the scheduler
   and Octane are out of scope.
-- Duplicate suppression uses the application cache. A process-local store such as
-  `array` suppresses repeats only within that process; a shared store keeps the
-  suppression across requests.
+- There is no automatic retention or scheduled cleanup. Reports stay until the
+  table is cleared manually.
 - N+1 detection covers lazy Eloquent relations. Manual repeated queries are
   reported as duplicates.
 - `WithoutMiddleware` removes the package middleware, so tracking does not run for

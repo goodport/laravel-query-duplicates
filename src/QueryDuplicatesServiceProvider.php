@@ -3,15 +3,13 @@
 namespace Goodport\QueryDuplicates;
 
 use Goodport\QueryDuplicates\Aggregator\DuplicateQueryAggregator;
+use Goodport\QueryDuplicates\Config\AdminRouteDefaults;
 use Goodport\QueryDuplicates\Config\DuplicateQuerySettings;
 use Goodport\QueryDuplicates\Http\TrackDuplicateQueries;
 use Goodport\QueryDuplicates\Listener\RecordQuery;
-use Goodport\QueryDuplicates\Logging\DuplicateQueryWriter;
-use Goodport\QueryDuplicates\Logging\LogChannelResolver;
-use Goodport\QueryDuplicates\Logging\ReportDeduplicator;
+use Goodport\QueryDuplicates\Recording\QueryDuplicateRecorder;
 use Goodport\QueryDuplicates\Support\ExcludeMatcher;
 use Goodport\QueryDuplicates\Support\StackRelationQueryDetector;
-use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel as KernelContract;
@@ -23,6 +21,8 @@ use InvalidArgumentException;
 class QueryDuplicatesServiceProvider extends ServiceProvider
 {
     private bool $trackingRegistered = false;
+
+    private bool $routesRegistered = false;
 
     public function register(): void
     {
@@ -46,11 +46,7 @@ class QueryDuplicatesServiceProvider extends ServiceProvider
             );
         });
 
-        $this->app->singleton(LogChannelResolver::class);
-
-        $this->app->singleton(ReportDeduplicator::class, function (Application $app): ReportDeduplicator {
-            return new ReportDeduplicator($app->make(CacheRepository::class));
-        });
+        $this->app->singleton(QueryDuplicateRecorder::class);
     }
 
     public function boot(): void
@@ -59,7 +55,19 @@ class QueryDuplicatesServiceProvider extends ServiceProvider
             __DIR__.'/../config/query-duplicates.php' => config_path('query-duplicates.php'),
         ], 'query-duplicates-config');
 
+        $this->publishes([
+            __DIR__.'/../resources/views' => resource_path('views/vendor/query-duplicates'),
+        ], 'query-duplicates-views');
+
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'query-duplicates');
+        $this->loadTranslationsFrom(__DIR__.'/../lang', 'query-duplicates');
+
+        $this->normalizeAdminRoute();
+
         $config = $this->packageConfig();
+
+        $this->registerAdminRoutes($config);
 
         if (! DuplicateQuerySettings::enabledFromConfig($config['enabled'] ?? null)) {
             return;
@@ -77,16 +85,6 @@ class QueryDuplicatesServiceProvider extends ServiceProvider
             new ExcludeMatcher($settings->exclude),
         );
 
-        $logger = $this->app->make(LogChannelResolver::class)->resolve($settings->logChannel);
-
-        $this->app->instance(
-            DuplicateQueryWriter::class,
-            new DuplicateQueryWriter(
-                logger: $logger,
-                deduplicator: $this->app->make(ReportDeduplicator::class),
-            ),
-        );
-
         $this->app->make(Dispatcher::class)->listen(
             QueryExecuted::class,
             $this->app->make(RecordQuery::class),
@@ -97,6 +95,43 @@ class QueryDuplicatesServiceProvider extends ServiceProvider
         $kernel->prependMiddleware(TrackDuplicateQueries::class);
 
         $this->trackingRegistered = true;
+    }
+
+    /**
+     * Registers the admin routes when they are enabled in the configuration.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    private function registerAdminRoutes(array $config): void
+    {
+        $adminRoute = AdminRouteDefaults::normalize($config['admin_route'] ?? []);
+
+        if (! $adminRoute['enabled']) {
+            return;
+        }
+
+        if ($this->routesRegistered) {
+            return;
+        }
+
+        $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
+
+        $this->routesRegistered = true;
+    }
+
+    /**
+     * Restores safe defaults after Laravel's flat config merge replaces the
+     * package [admin_route] array with a partial application override.
+     *
+     * The normalized array is written back before any route is registered, so
+     * the gate middleware cannot be lost by a partial override.
+     */
+    private function normalizeAdminRoute(): void
+    {
+        $config = $this->packageConfig();
+        $config['admin_route'] = AdminRouteDefaults::normalize($config['admin_route'] ?? []);
+
+        $this->app['config']->set('query-duplicates', $config);
     }
 
     /**

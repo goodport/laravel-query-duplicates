@@ -52,11 +52,11 @@ final class RelationDetectionTest extends TestCase
     {
         $this->get(route('testing.duplicates.relations'))->assertOk();
 
-        $context = $this->singleReportContext();
+        $row = $this->singleDuplicate();
 
-        $this->assertSame(QueryGroup::TYPE__N_PLUS_ONE, $context['type']);
-        $this->assertSame(3, $context['query_count']);
-        $this->assertStringContainsString('relation_children', $context['sql']);
+        $this->assertSame(QueryGroup::TYPE__N_PLUS_ONE, $row->type);
+        $this->assertSame(3, $row->query_count);
+        $this->assertStringContainsString('relation_children', $row->sql);
     }
 
     /**

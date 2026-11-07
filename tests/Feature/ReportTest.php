@@ -8,9 +8,9 @@ use Goodport\QueryDuplicates\Tests\TestCase;
 final class ReportTest extends TestCase
 {
     /**
-     * Only queries inside the HTTP request are logged; preparation and assertions are not.
+     * Only queries inside the HTTP request are stored; preparation and assertions are not.
      */
-    public function test_only_queries_inside_http_request_are_logged(): void
+    public function test_only_queries_inside_http_request_are_stored(): void
     {
         $connection = $this->app->make('db')->connection();
 
@@ -22,80 +22,68 @@ final class ReportTest extends TestCase
         $connection->select('select ? as id', [7]);
         $connection->select('select ? as id', [7]);
 
-        $this->assertSame(3, $this->singleReportContext()['query_count']);
+        $this->assertSame(3, $this->singleDuplicate()->query_count);
     }
 
     /**
      * Different bindings are not a duplicate while strict mode is off.
      */
-    public function test_different_bindings_are_not_logged_by_default(): void
+    public function test_different_bindings_are_not_stored_by_default(): void
     {
         $this->get(route('testing.duplicates.different-bindings'))->assertOk();
 
-        $this->assertReportCount(0);
+        $this->assertDuplicateCount(0);
     }
 
     /**
-     * The log entry has the documented fields.
+     * The stored row has the documented fields.
      */
-    public function test_log_entry_contains_only_documented_fields(): void
+    public function test_row_contains_only_documented_fields(): void
     {
         $this->get(route('testing.duplicates.identical'))->assertOk();
 
-        $context = $this->singleReportContext();
+        $row = $this->singleDuplicate();
 
-        $this->assertSame(
-            ['method', 'path', 'route', 'sql', 'query_count', 'time_ms', 'type'],
-            array_keys($context),
-        );
-        $this->assertSame('GET', $context['method']);
-        $this->assertSame('duplicates/identical', $context['path']);
-        $this->assertSame('testing.duplicates.identical', $context['route']);
-        $this->assertSame('select ? as id', $context['sql']);
-        $this->assertSame(3, $context['query_count']);
-        $this->assertSame(QueryGroup::TYPE__DUPLICATE, $context['type']);
-    }
-
-    /**
-     * The message names the report type and execution count.
-     */
-    public function test_message_contains_type_and_count(): void
-    {
-        $this->get(route('testing.duplicates.identical'))->assertOk();
-
-        $message = $this->singleReportRecord()['message'];
-
-        $this->assertStringContainsString('Duplicate query: 3 executions', $message);
+        $this->assertSame('GET', $row->method);
+        $this->assertSame('duplicates/identical', $row->path);
+        $this->assertSame('testing.duplicates.identical', $row->route);
+        $this->assertSame('select ? as id', $row->sql);
+        $this->assertSame(3, $row->query_count);
+        $this->assertEqualsWithDelta(0.3, $row->time_ms, 0.001);
+        $this->assertSame(QueryGroup::TYPE__DUPLICATE, $row->type);
+        $this->assertSame(1, $row->occurrences);
     }
 
     /**
      * Queries on the second SQL connection are included in the report.
      */
-    public function test_queries_on_secondary_connection_are_logged(): void
+    public function test_queries_on_secondary_connection_are_stored(): void
     {
         $this->get(route('testing.duplicates.secondary'))->assertOk();
 
-        $this->assertSame(2, $this->singleReportContext()['query_count']);
+        $this->assertSame(2, $this->singleDuplicate()->query_count);
     }
 
     /**
-     * The path context has no query string or request parameters.
+     * The stored path has no query string or request parameters.
      */
     public function test_path_has_no_query_string(): void
     {
         $this->get(route('testing.duplicates.identical').'?token=secret-token')->assertOk();
 
-        $this->assertSame('duplicates/identical', $this->singleReportContext()['path']);
-        $this->assertStringNotContainsString('secret-token', $this->rawLogContents());
+        $row = $this->singleDuplicate();
+
+        $this->assertSame('duplicates/identical', $row->path);
+        $this->assertStringNotContainsString('secret-token', (string) json_encode($row->getAttributes()));
     }
 
     /**
-     * A 404 does not prevent the report from being written in terminate.
+     * A 404 does not prevent the report from being stored in terminate.
      */
     public function test_not_found_does_not_break_reporting(): void
     {
         $this->get(route('testing.duplicates.identical').'/missing-page')->assertNotFound();
 
-        $this->assertNull($this->singleReportContext()['route']);
+        $this->assertNull($this->singleDuplicate()->route);
     }
 }

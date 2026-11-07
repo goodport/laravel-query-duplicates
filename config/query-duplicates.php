@@ -1,5 +1,7 @@
 <?php
 
+use Goodport\QueryDuplicates\Config\AdminRouteDefaults;
+
 return [
 
     /*
@@ -8,7 +10,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | The package is enabled by default. Only SQL queries executed inside an
-    | HTTP request are tracked.
+    | HTTP request are tracked. The admin page stays available when tracking is
+    | disabled, because it reads already stored reports.
     |
     */
 
@@ -41,15 +44,34 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Log channel
+    | Database connection
     |--------------------------------------------------------------------------
     |
-    | Any channel defined in config/logging.php. When null, the application's
-    | default channel is used.
+    | Connection used by the query_duplicates table and the admin page. Null
+    | means the application default connection.
+    |
+    | The connection is read by the migration too. Changing it after the first
+    | migration requires moving the table manually, because the migration is
+    | already recorded in the migrations table.
     |
     */
 
-    'log_channel' => null,
+    'connection' => null,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin page
+    |--------------------------------------------------------------------------
+    |
+    | enabled registers the admin routes. The package does not define the
+    | [view-query-duplicates] gate, so the page returns 403 until the
+    | application defines it or replaces the middleware.
+    |
+    | prefix is the route prefix and is also skipped during tracking.
+    |
+    */
+
+    'admin_route' => AdminRouteDefaults::all(),
 
     /*
     |--------------------------------------------------------------------------

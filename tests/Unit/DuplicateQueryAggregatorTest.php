@@ -245,7 +245,6 @@ final class DuplicateQueryAggregatorTest extends TestCase
                 enabled: true,
                 strict: $strict,
                 threshold: $threshold,
-                logChannel: null,
                 exclude: [],
             ),
             excludeMatcher: $excludeMatcher ?? new ExcludeMatcher([]),
