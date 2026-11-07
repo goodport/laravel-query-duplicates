@@ -590,9 +590,9 @@
             white-space: normal;
         }
 
-        .cell-path {
+        .cell-truncate {
             display: block;
-            max-width: 360px;
+            max-width: 180px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -641,11 +641,11 @@
         }
 
         .cell-sql {
-            min-width: 480px;
+            min-width: 240px;
         }
 
         .sql-box {
-            max-width: 640px;
+            max-width: 320px;
             padding: 7px 9px;
             overflow: hidden;
             border: 1px solid var(--qd-code-border);
@@ -663,7 +663,7 @@
             overflow-wrap: anywhere;
             white-space: pre-wrap;
             -webkit-box-orient: vertical;
-            -webkit-line-clamp: 4;
+            -webkit-line-clamp: 2;
         }
 
         .sql-keyword {
@@ -1184,7 +1184,7 @@
                                     @endif
                                 </td>
                                 <td class="mono" dir="ltr">
-                                    <span class="cell-path" title="{{ $duplicate->path }}">{{ $duplicate->path }}</span>
+                                    <span class="cell-truncate" title="{{ $duplicate->path }}">{{ $duplicate->path }}</span>
                                 </td>
                                 <td class="numeric">{{ $duplicate->query_count }}</td>
                                 <td class="numeric">{{ number_format($duplicate->time_ms, 2) }}</td>
