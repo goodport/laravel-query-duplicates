@@ -1143,11 +1143,6 @@
                                 'label' => trans('query-duplicates::query-duplicates.columns.time_ms'),
                                 'numeric' => true,
                             ])
-                            @include('query-duplicates::query-duplicates.partials.sort-header', [
-                                'column' => 'occurrences',
-                                'label' => trans('query-duplicates::query-duplicates.columns.occurrences'),
-                                'numeric' => true,
-                            ])
                             <th scope="col">{{ trans('query-duplicates::query-duplicates.columns.sql') }}</th>
                             <th scope="col">{{ trans('query-duplicates::query-duplicates.columns.actions') }}</th>
                         </tr>
@@ -1186,7 +1181,6 @@
                                 </td>
                                 <td class="numeric">{{ $duplicate->query_count }}</td>
                                 <td class="numeric">{{ number_format($duplicate->time_ms, 2) }}</td>
-                                <td class="numeric">{{ $duplicate->occurrences }}</td>
                                 <td class="cell-sql">
                                     <div class="sql-box" title="{{ $duplicate->sql }}">
                                         <code class="sql-text" dir="ltr">{{ $duplicate->sql }}</code>

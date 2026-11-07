@@ -258,7 +258,7 @@ The page supports:
 
 - search by `route`, `path`, and `sql`, case-insensitive;
 - filtering by `type` (`duplicate` or `n+1`) and HTTP method (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`);
-- sorting by `method`, `updated_at`, `query_count`, `time_ms`, and `occurrences`;
+- sorting by `method`, `updated_at`, `query_count`, and `time_ms`;
 - the default order is `query_count` descending;
 - pagination with 30 rows per page;
 - clearing every report with a POST request, CSRF protection, and confirmation;

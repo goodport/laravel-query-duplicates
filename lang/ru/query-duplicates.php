@@ -47,7 +47,6 @@ return [
         'path' => 'Path',
         'query_count' => 'Запросов',
         'time_ms' => 'Время, мс',
-        'occurrences' => 'Срабатываний',
         'sql' => 'SQL',
         'actions' => 'Действия',
     ],

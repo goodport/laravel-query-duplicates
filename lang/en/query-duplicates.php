@@ -47,7 +47,6 @@ return [
         'path' => 'Path',
         'query_count' => 'Queries',
         'time_ms' => 'Time, ms',
-        'occurrences' => 'Occurrences',
         'sql' => 'SQL',
         'actions' => 'Actions',
     ],

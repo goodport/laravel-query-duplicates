@@ -145,10 +145,6 @@ final class IndexTest extends TestCase
             ->assertOk()
             ->assertSeeInOrder(['slow.index', 'middle.index', 'fast.index']);
 
-        $this->get(route('query-duplicates.index', ['sort' => 'occurrences', 'direction' => 'desc']))
-            ->assertOk()
-            ->assertSeeInOrder(['fast.index', 'middle.index', 'slow.index']);
-
         $this->get(route('query-duplicates.index'))
             ->assertOk()
             ->assertSeeInOrder(['slow.index', 'middle.index', 'fast.index']);
@@ -253,7 +249,6 @@ final class IndexTest extends TestCase
             'method' => 'POST',
             'query_count' => 5,
             'time_ms' => 9.5,
-            'occurrences' => 1,
             'updated_at' => now()->subMinutes(2),
         ]);
         $this->insertDuplicate([
@@ -261,7 +256,6 @@ final class IndexTest extends TestCase
             'method' => 'GET',
             'query_count' => 2,
             'time_ms' => 1.0,
-            'occurrences' => 3,
             'updated_at' => now()->subMinute(),
         ]);
         $this->insertDuplicate([
@@ -269,7 +263,6 @@ final class IndexTest extends TestCase
             'method' => 'PUT',
             'query_count' => 3,
             'time_ms' => 4.0,
-            'occurrences' => 2,
             'updated_at' => now(),
         ]);
     }

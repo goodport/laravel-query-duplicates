@@ -20,7 +20,7 @@ final class QueryDuplicateRepository
      *
      * @var list<string>
      */
-    public const SORTABLE = ['method', 'updated_at', 'query_count', 'time_ms', 'occurrences'];
+    public const SORTABLE = ['method', 'updated_at', 'query_count', 'time_ms'];
 
     /**
      * Directions accepted by the sort parameter.
