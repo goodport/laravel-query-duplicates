@@ -1112,7 +1112,11 @@
                                 'numeric' => false,
                             ])
                             <th scope="col">{{ trans('query-duplicates::query-duplicates.columns.type') }}</th>
-                            <th scope="col">{{ trans('query-duplicates::query-duplicates.columns.method') }}</th>
+                            @include('query-duplicates::query-duplicates.partials.sort-header', [
+                                'column' => 'method',
+                                'label' => trans('query-duplicates::query-duplicates.columns.method'),
+                                'numeric' => false,
+                            ])
                             <th scope="col">{{ trans('query-duplicates::query-duplicates.columns.route') }}</th>
                             <th scope="col">{{ trans('query-duplicates::query-duplicates.columns.path') }}</th>
                             @include('query-duplicates::query-duplicates.partials.sort-header', [

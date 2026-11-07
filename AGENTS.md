@@ -54,6 +54,7 @@
 - Storage errors never break the HTTP response and are reported once per process.
 - The admin page shows a setup message with the SQLite path when the storage is unavailable; other errors are not masked.
 - A single report can be deleted from its row; the redirect keeps the current search, type, sort, direction, and page.
+- The admin page sorts by `query_count` descending by default; `method` is also sortable.
 - The admin page is registered by default but returns 403 until the application defines the `view-query-duplicates` gate or replaces the middleware.
 - The page is available when tracking is disabled because it only reads stored reports and shows the active SQLite path.
 - Requests under `admin_route.prefix` are not tracked.

@@ -111,6 +111,14 @@ final class IndexTest extends TestCase
             ->assertOk()
             ->assertSeeInOrder(['fast.index', 'middle.index', 'slow.index']);
 
+        $this->get(route('query-duplicates.index', ['sort' => 'method', 'direction' => 'asc']))
+            ->assertOk()
+            ->assertSeeInOrder(['fast.index', 'slow.index', 'middle.index']);
+
+        $this->get(route('query-duplicates.index', ['sort' => 'method', 'direction' => 'desc']))
+            ->assertOk()
+            ->assertSeeInOrder(['middle.index', 'slow.index', 'fast.index']);
+
         $this->get(route('query-duplicates.index', ['sort' => 'time_ms', 'direction' => 'desc']))
             ->assertOk()
             ->assertSeeInOrder(['slow.index', 'middle.index', 'fast.index']);
@@ -121,7 +129,7 @@ final class IndexTest extends TestCase
 
         $this->get(route('query-duplicates.index'))
             ->assertOk()
-            ->assertSeeInOrder(['middle.index', 'fast.index', 'slow.index']);
+            ->assertSeeInOrder(['slow.index', 'middle.index', 'fast.index']);
     }
 
     /**
@@ -134,7 +142,7 @@ final class IndexTest extends TestCase
 
         $this->get(route('query-duplicates.index', ['sort' => 'unexpected_column']))
             ->assertOk()
-            ->assertSeeInOrder(['middle.index', 'fast.index', 'slow.index']);
+            ->assertSeeInOrder(['slow.index', 'middle.index', 'fast.index']);
     }
 
     /**
@@ -166,6 +174,7 @@ final class IndexTest extends TestCase
         for ($index = 0; $index <= QueryDuplicateRepository::PER_PAGE; $index++) {
             $this->insertDuplicate([
                 'route' => 'page.row.'.$index,
+                'query_count' => $index,
                 'updated_at' => now()->addSeconds($index),
             ]);
         }
@@ -219,6 +228,7 @@ final class IndexTest extends TestCase
     {
         $this->insertDuplicate([
             'route' => 'slow.index',
+            'method' => 'POST',
             'query_count' => 5,
             'time_ms' => 9.5,
             'occurrences' => 1,
@@ -226,6 +236,7 @@ final class IndexTest extends TestCase
         ]);
         $this->insertDuplicate([
             'route' => 'fast.index',
+            'method' => 'GET',
             'query_count' => 2,
             'time_ms' => 1.0,
             'occurrences' => 3,
@@ -233,6 +244,7 @@ final class IndexTest extends TestCase
         ]);
         $this->insertDuplicate([
             'route' => 'middle.index',
+            'method' => 'PUT',
             'query_count' => 3,
             'time_ms' => 4.0,
             'occurrences' => 2,

@@ -204,7 +204,8 @@ The page supports:
 
 - search by `route`, `path`, and `sql`, case-insensitive;
 - filtering by `type` (`duplicate` or `n+1`);
-- sorting by `updated_at`, `query_count`, `time_ms`, and `occurrences`;
+- sorting by `method`, `updated_at`, `query_count`, `time_ms`, and `occurrences`;
+- the default order is `query_count` descending;
 - pagination with 30 rows per page;
 - clearing every report with a POST request, CSRF protection, and confirmation;
 - deleting a single report from its row with a DELETE request while keeping the current search, type, sort, direction, and page;

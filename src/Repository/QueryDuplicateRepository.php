@@ -20,7 +20,7 @@ final class QueryDuplicateRepository
      *
      * @var list<string>
      */
-    public const SORTABLE = ['updated_at', 'query_count', 'time_ms', 'occurrences'];
+    public const SORTABLE = ['method', 'updated_at', 'query_count', 'time_ms', 'occurrences'];
 
     /**
      * Directions accepted by the sort parameter.
@@ -29,7 +29,7 @@ final class QueryDuplicateRepository
      */
     public const DIRECTIONS = ['asc', 'desc'];
 
-    public const DEFAULT_SORT = 'updated_at';
+    public const DEFAULT_SORT = 'query_count';
 
     public const DEFAULT_DIRECTION = 'desc';
 
@@ -69,6 +69,7 @@ final class QueryDuplicateRepository
                 $this->sortColumn($filters['sort'] ?? null),
                 $this->sortDirection($filters['direction'] ?? null),
             )
+            ->orderBy('id')
             ->paginate(self::PER_PAGE)
             ->withQueryString();
     }
