@@ -14,6 +14,27 @@ The package observes only SQL executed while an HTTP request is being handled.
 Data preparation in tests (factories, seeders, `actingAs`) and assertions after the
 request (`assertDatabaseHas` and similar) are outside the tracked area.
 
+## Designed for test runs
+
+The package is built for the test workflow: run your HTTP or feature tests, then open
+the admin page and review the duplicate and N+1 queries those requests produced.
+
+Reports are stored in the package-owned SQLite file and are kept after the test run.
+The same file is used by the application, its tests, and the admin page, so reports
+created during the test suite appear on the page without any export or migration step.
+
+Typical workflow:
+
+1. Run your application HTTP or feature tests.
+2. Open `/query-duplicates` (or your configured `admin_route.prefix`).
+3. Review, filter, and sort the reported queries; copy a report as JSON when needed.
+4. Fix the code, rerun the tests, and delete the rows that are already resolved.
+
+Only SQL executed while handling an HTTP request is observed. Pure unit tests, console
+commands, factories, seeders, and post-request assertions do not produce reports.
+This is not production monitoring: the package is intended for development and test
+runs.
+
 ## Requirements
 
 - PHP 8.3+
