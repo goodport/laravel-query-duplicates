@@ -40,7 +40,7 @@ return [
     'range' => 'Показано :from–:to из :total',
     'table_label' => 'Отчёты о дублирующихся запросах',
     'columns' => [
-        'last_seen' => 'Последнее срабатывание',
+        'last_seen' => 'Дата',
         'type' => 'Тип',
         'method' => 'Метод',
         'route' => 'Route',
