@@ -168,12 +168,13 @@ exclusions belong in the publishing application's configuration, not in the pack
 
 ## Admin page
 
-The package registers two routes:
+The package registers three routes:
 
 | Method | Path | Route name |
 | --- | --- | --- |
 | `GET` | `{prefix}` | `query-duplicates.index` |
 | `POST` | `{prefix}/clear` | `query-duplicates.clear` |
+| `DELETE` | `{prefix}/{queryDuplicate}` | `query-duplicates.destroy` |
 
 The package does not define the `view-query-duplicates` gate. With the default
 middleware the page returns 403 until the application defines the gate:
@@ -206,6 +207,7 @@ The page supports:
 - sorting by `updated_at`, `query_count`, `time_ms`, and `occurrences`;
 - pagination with 30 rows per page;
 - clearing every report with a POST request, CSRF protection, and confirmation;
+- deleting a single report from its row with a DELETE request while keeping the current search, type, sort, direction, and page;
 - copying a row as JSON for sharing with a developer or agent.
 
 The copied JSON has the same keys as the previous log context:

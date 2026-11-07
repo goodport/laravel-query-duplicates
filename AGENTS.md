@@ -17,7 +17,7 @@
 - `src/Storage/SqliteStorage.php` — owns the `query-duplicates` connection, file path, directory creation, and the automatic `query_duplicates` table.
 - `src/Storage/StorageUnavailableException.php` — unavailable SQLite directory, file, or table.
 - `src/Http/TrackDuplicateQueries.php` — per-HTTP-request collection lifecycle, admin-prefix skip, and recorder call in `terminate()`.
-- `src/Http/QueryDuplicateController.php` — admin page and clear action.
+- `src/Http/QueryDuplicateController.php` — admin page, clear, and single-report delete actions.
 - `src/Http/Requests/QueryDuplicateIndexRequest.php` — query filter validation.
 - `src/Listener/RecordQuery.php` — subscribes to `QueryExecuted`.
 - `src/Aggregator/DuplicateQueryAggregator.php` — query grouping and reporting rules.
@@ -31,6 +31,7 @@
 - `src/Recording/QueryRequestContext.php` — method, path, and route of one request.
 - `src/Repository/QueryDuplicateRepository.php` — read-only search, type filter, whitelisted sorting, and pagination.
 - `src/Services/QueryDuplicateClearer.php` — deletes all reports.
+- `src/Services/QueryDuplicateDeleter.php` — deletes one report by id.
 - `src/Support/` — exclusions and N+1 detection.
 - `routes/web.php` — admin routes.
 - `resources/views/query-duplicates/index.blade.php` — self-contained admin page.
@@ -52,6 +53,7 @@
 - Storage is batched: one `upsert` and one `increment` per request, regardless of the number of groups.
 - Storage errors never break the HTTP response and are reported once per process.
 - The admin page shows a setup message with the SQLite path when the storage is unavailable; other errors are not masked.
+- A single report can be deleted from its row; the redirect keeps the current search, type, sort, direction, and page.
 - The admin page is registered by default but returns 403 until the application defines the `view-query-duplicates` gate or replaces the middleware.
 - The page is available when tracking is disabled because it only reads stored reports and shows the active SQLite path.
 - Requests under `admin_route.prefix` are not tracked.

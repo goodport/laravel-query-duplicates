@@ -681,11 +681,26 @@
         }
 
         .cell-actions {
-            width: 160px;
+            width: 280px;
+            min-width: 280px;
             white-space: nowrap;
         }
 
-        .copy-button {
+        .row-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .row-actions > * {
+            flex: 1 1 0;
+            min-width: 0;
+        }
+
+        .action-form {
+            margin: 0;
+        }
+
+        .row-button {
             display: inline-flex;
             width: 100%;
             align-items: center;
@@ -705,15 +720,15 @@
             transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
         }
 
+        .row-button .icon {
+            width: 14px;
+            height: 14px;
+        }
+
         .copy-button:hover {
             border-color: var(--qd-accent);
             background: var(--qd-accent-soft);
             color: var(--qd-accent);
-        }
-
-        .copy-button .icon {
-            width: 14px;
-            height: 14px;
         }
 
         .copy-button .copied-icon {
@@ -735,6 +750,16 @@
         }
 
         .copy-button.copy-error {
+            border-color: var(--qd-danger);
+            background: var(--qd-danger-soft);
+            color: var(--qd-danger);
+        }
+
+        .delete-button {
+            color: var(--qd-faint);
+        }
+
+        .delete-button:hover {
             border-color: var(--qd-danger);
             background: var(--qd-danger-soft);
             color: var(--qd-danger);
@@ -1150,22 +1175,43 @@
                                     </div>
                                 </td>
                                 <td class="cell-actions">
-                                    <button type="button" class="copy-button"
-                                            data-context="{{ json_encode($duplicate->context(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR) }}"
-                                            aria-label="{{ trans('query-duplicates::query-duplicates.copy_aria', ['target' => $duplicate->route ?: $duplicate->path]) }}">
-                                        <svg class="icon copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                                             aria-hidden="true">
-                                            <rect x="9" y="9" width="11" height="11" rx="2"/>
-                                            <path d="M5 15V6a2 2 0 0 1 2-2h9"/>
-                                        </svg>
-                                        <svg class="icon copied-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                                             aria-hidden="true">
-                                            <path d="m5 12 4.5 4.5L19 7"/>
-                                        </svg>
-                                        <span class="copy-label">{{ trans('query-duplicates::query-duplicates.copy') }}</span>
-                                    </button>
+                                    <div class="row-actions">
+                                        <button type="button" class="row-button copy-button"
+                                                data-context="{{ json_encode($duplicate->context(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR) }}"
+                                                aria-label="{{ trans('query-duplicates::query-duplicates.copy_aria', ['target' => $duplicate->route ?: $duplicate->path]) }}">
+                                            <svg class="icon copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                                 aria-hidden="true">
+                                                <rect x="9" y="9" width="11" height="11" rx="2"/>
+                                                <path d="M5 15V6a2 2 0 0 1 2-2h9"/>
+                                            </svg>
+                                            <svg class="icon copied-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                                 aria-hidden="true">
+                                                <path d="m5 12 4.5 4.5L19 7"/>
+                                            </svg>
+                                            <span class="copy-label">{{ trans('query-duplicates::query-duplicates.copy') }}</span>
+                                        </button>
+
+                                        <form class="action-form" method="POST"
+                                              action="{{ route('query-duplicates.destroy', array_merge(request()->query(), ['queryDuplicate' => $duplicate->id])) }}">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="row-button delete-button"
+                                                    aria-label="{{ trans('query-duplicates::query-duplicates.delete_aria', ['target' => $duplicate->route ?: $duplicate->path]) }}">
+                                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                                     aria-hidden="true">
+                                                    <path d="M4 7h16"/>
+                                                    <path d="M10 11v6"/>
+                                                    <path d="M14 11v6"/>
+                                                    <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/>
+                                                    <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+                                                </svg>
+                                                <span>{{ trans('query-duplicates::query-duplicates.delete') }}</span>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach

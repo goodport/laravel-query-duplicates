@@ -12,4 +12,7 @@ Route::middleware($adminRoute['middleware'])
     ->group(function (): void {
         Route::get('/', [QueryDuplicateController::class, 'index'])->name('index');
         Route::post('/clear', [QueryDuplicateController::class, 'clear'])->name('clear');
+        Route::delete('/{queryDuplicate}', [QueryDuplicateController::class, 'destroy'])
+            ->whereNumber('queryDuplicate')
+            ->name('destroy');
     });

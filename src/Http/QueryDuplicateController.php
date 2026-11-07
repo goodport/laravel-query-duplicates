@@ -5,9 +5,11 @@ namespace Goodport\QueryDuplicates\Http;
 use Goodport\QueryDuplicates\Http\Requests\QueryDuplicateIndexRequest;
 use Goodport\QueryDuplicates\Repository\QueryDuplicateRepository;
 use Goodport\QueryDuplicates\Services\QueryDuplicateClearer;
+use Goodport\QueryDuplicates\Services\QueryDuplicateDeleter;
 use Goodport\QueryDuplicates\Storage\SqliteStorage;
 use Goodport\QueryDuplicates\Storage\StorageUnavailableException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 final class QueryDuplicateController
@@ -15,6 +17,7 @@ final class QueryDuplicateController
     public function __construct(
         private readonly QueryDuplicateRepository $repository,
         private readonly QueryDuplicateClearer $clearer,
+        private readonly QueryDuplicateDeleter $deleter,
         private readonly SqliteStorage $storage,
     ) {}
 
@@ -63,5 +66,28 @@ final class QueryDuplicateController
         return redirect()
             ->route('query-duplicates.index')
             ->with('status', trans('query-duplicates::query-duplicates.cleared'));
+    }
+
+    /**
+     * Deletes one report and redirects back to the same filtered page.
+     *
+     * The current query string is kept so the user stays on the same search,
+     * type, sort, direction, and page after the row disappears.
+     *
+     * When the SQLite storage is unavailable, the redirect has no success
+     * message, matching the clear action: the index page renders the setup
+     * block instead.
+     */
+    public function destroy(Request $request, int $queryDuplicate): RedirectResponse
+    {
+        try {
+            $this->deleter->delete($queryDuplicate);
+        } catch (StorageUnavailableException) {
+            return redirect()->route('query-duplicates.index', $request->query());
+        }
+
+        return redirect()
+            ->route('query-duplicates.index', $request->query())
+            ->with('status', trans('query-duplicates::query-duplicates.deleted'));
     }
 }
