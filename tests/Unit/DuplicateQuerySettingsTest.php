@@ -25,7 +25,8 @@ final class DuplicateQuerySettingsTest extends TestCase
         $this->assertSame(2, $settings->getGroup->threshold);
         $this->assertTrue($settings->otherGroup->enabled);
         $this->assertSame(5, $settings->otherGroup->threshold);
-        $this->assertSame([], $settings->exclude);
+        $this->assertSame([], $settings->exclusions->routes);
+        $this->assertSame([], $settings->exclusions->queries);
     }
 
     /**
@@ -189,7 +190,10 @@ final class DuplicateQuerySettingsTest extends TestCase
      */
     public function test_empty_exclude_entry_throws_exception(): void
     {
-        $this->assertInvalidConfig(['exclude' => ['']], 'Each [query-duplicates.exclude] entry');
+        $this->assertInvalidConfig(
+            ['exclude' => ['queries' => ['']]],
+            'Each [query-duplicates.exclude.queries] entry',
+        );
     }
 
     /**
@@ -198,10 +202,12 @@ final class DuplicateQuerySettingsTest extends TestCase
     public function test_string_exclusion_is_kept(): void
     {
         $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
-            'exclude' => ['from `sessions`'],
+            'exclude' => [
+                'queries' => ['from `sessions`'],
+            ],
         ]));
 
-        $this->assertSame(['from `sessions`'], $settings->exclude);
+        $this->assertSame(['from `sessions`'], $settings->exclusions->queries);
     }
 
     /**
@@ -211,9 +217,11 @@ final class DuplicateQuerySettingsTest extends TestCase
     {
         $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
             'exclude' => [
-                [
-                    'sql' => 'select * from `example_events` where `category` = ?',
-                    'bindings' => [0 => 'security'],
+                'queries' => [
+                    [
+                        'sql' => 'select * from `example_events` where `category` = ?',
+                        'bindings' => [0 => 'security'],
+                    ],
                 ],
             ],
         ]));
@@ -223,7 +231,7 @@ final class DuplicateQuerySettingsTest extends TestCase
                 'sql' => 'select * from `example_events` where `category` = ?',
                 'bindings' => [0 => 'security'],
             ],
-        ], $settings->exclude);
+        ], $settings->exclusions->queries);
     }
 
     /**
@@ -233,13 +241,15 @@ final class DuplicateQuerySettingsTest extends TestCase
     {
         $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
             'exclude' => [
-                ['sql' => 'from `sessions`'],
+                'queries' => [
+                    ['sql' => 'from `sessions`'],
+                ],
             ],
         ]));
 
         $this->assertSame([
             ['sql' => 'from `sessions`', 'bindings' => []],
-        ], $settings->exclude);
+        ], $settings->exclusions->queries);
     }
 
     /**
@@ -247,7 +257,10 @@ final class DuplicateQuerySettingsTest extends TestCase
      */
     public function test_empty_rule_sql_throws_exception(): void
     {
-        $this->assertInvalidConfig(['exclude' => [['sql' => '']]], 'query-duplicates.exclude');
+        $this->assertInvalidConfig(
+            ['exclude' => ['queries' => [['sql' => '']]]],
+            'query-duplicates.exclude.queries',
+        );
     }
 
     /**
@@ -255,7 +268,10 @@ final class DuplicateQuerySettingsTest extends TestCase
      */
     public function test_non_string_rule_sql_throws_exception(): void
     {
-        $this->assertInvalidConfig(['exclude' => [['sql' => 123]]], 'query-duplicates.exclude');
+        $this->assertInvalidConfig(
+            ['exclude' => ['queries' => [['sql' => 123]]]],
+            'query-duplicates.exclude.queries',
+        );
     }
 
     /**
@@ -264,8 +280,8 @@ final class DuplicateQuerySettingsTest extends TestCase
     public function test_non_array_rule_bindings_throws_exception(): void
     {
         $this->assertInvalidConfig(
-            ['exclude' => [['sql' => 'from `sessions`', 'bindings' => 'security']]],
-            'query-duplicates.exclude',
+            ['exclude' => ['queries' => [['sql' => 'from `sessions`', 'bindings' => 'security']]]],
+            'query-duplicates.exclude.queries',
         );
     }
 
@@ -275,8 +291,8 @@ final class DuplicateQuerySettingsTest extends TestCase
     public function test_negative_binding_position_throws_exception(): void
     {
         $this->assertInvalidConfig(
-            ['exclude' => [['sql' => 'from `sessions`', 'bindings' => [-1 => 'security']]]],
-            'query-duplicates.exclude',
+            ['exclude' => ['queries' => [['sql' => 'from `sessions`', 'bindings' => [-1 => 'security']]]]],
+            'query-duplicates.exclude.queries',
         );
     }
 
@@ -286,8 +302,8 @@ final class DuplicateQuerySettingsTest extends TestCase
     public function test_non_integer_binding_position_throws_exception(): void
     {
         $this->assertInvalidConfig(
-            ['exclude' => [['sql' => 'from `sessions`', 'bindings' => ['category' => 'security']]]],
-            'query-duplicates.exclude',
+            ['exclude' => ['queries' => [['sql' => 'from `sessions`', 'bindings' => ['category' => 'security']]]]],
+            'query-duplicates.exclude.queries',
         );
     }
 
@@ -297,8 +313,8 @@ final class DuplicateQuerySettingsTest extends TestCase
     public function test_unknown_rule_key_throws_exception(): void
     {
         $this->assertInvalidConfig(
-            ['exclude' => [['sql' => 'from `sessions`', 'binding' => [0 => 'security']]]],
-            'query-duplicates.exclude',
+            ['exclude' => ['queries' => [['sql' => 'from `sessions`', 'binding' => [0 => 'security']]]]],
+            'query-duplicates.exclude.queries',
         );
     }
 
@@ -307,7 +323,82 @@ final class DuplicateQuerySettingsTest extends TestCase
      */
     public function test_invalid_exclusion_entry_type_throws_exception(): void
     {
-        $this->assertInvalidConfig(['exclude' => [123]], 'query-duplicates.exclude');
+        $this->assertInvalidConfig(
+            ['exclude' => ['queries' => [123]]],
+            'query-duplicates.exclude.queries',
+        );
+    }
+
+    /**
+     * Route exclusions are trimmed and keep wildcard patterns.
+     */
+    public function test_route_exclusions_are_loaded(): void
+    {
+        $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
+            'exclude' => [
+                'routes' => [' admin.* ', 'health'],
+            ],
+        ]));
+
+        $this->assertSame(['admin.*', 'health'], $settings->exclusions->routes);
+        $this->assertSame([], $settings->exclusions->queries);
+    }
+
+    /**
+     * Route exclusions must be a list.
+     */
+    public function test_route_exclusions_must_be_list(): void
+    {
+        $this->assertInvalidConfig(
+            ['exclude' => ['routes' => 'admin.*']],
+            'query-duplicates.exclude.routes',
+        );
+    }
+
+    /**
+     * An empty route exclusion is invalid.
+     */
+    public function test_empty_route_exclusion_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['exclude' => ['routes' => ['']]],
+            'query-duplicates.exclude.routes',
+        );
+    }
+
+    /**
+     * An empty exclude section means no exclusions.
+     */
+    public function test_empty_exclude_section_is_allowed(): void
+    {
+        $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
+            'exclude' => [],
+        ]));
+
+        $this->assertSame([], $settings->exclusions->routes);
+        $this->assertSame([], $settings->exclusions->queries);
+    }
+
+    /**
+     * The previous flat exclude list is rejected.
+     */
+    public function test_flat_exclude_list_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['exclude' => ['from `sessions`']],
+            'query-duplicates.exclude',
+        );
+    }
+
+    /**
+     * Unknown exclude keys are rejected.
+     */
+    public function test_unknown_exclude_key_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['exclude' => ['routes' => [], 'query' => []]],
+            'query-duplicates.exclude',
+        );
     }
 
     /**
@@ -327,14 +418,18 @@ final class DuplicateQuerySettingsTest extends TestCase
             'enabled' => false,
             'strict' => 'yes',
             'methods' => ['get' => ['threshold' => 1], 'unknown' => []],
-            'exclude' => [''],
+            'exclude' => [
+                'routes' => [''],
+                'queries' => [''],
+            ],
         ]));
 
         $this->assertFalse($settings->enabled);
         $this->assertFalse($settings->strict);
         $this->assertEquals(MethodGroupSettings::getDefaults(), $settings->getGroup);
         $this->assertEquals(MethodGroupSettings::otherDefaults(), $settings->otherGroup);
-        $this->assertSame([], $settings->exclude);
+        $this->assertSame([], $settings->exclusions->routes);
+        $this->assertSame([], $settings->exclusions->queries);
     }
 
     /**

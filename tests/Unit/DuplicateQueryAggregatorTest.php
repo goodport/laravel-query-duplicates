@@ -5,6 +5,7 @@ namespace Goodport\QueryDuplicates\Tests\Unit;
 use Goodport\QueryDuplicates\Aggregator\DuplicateQueryAggregator;
 use Goodport\QueryDuplicates\Aggregator\QueryGroup;
 use Goodport\QueryDuplicates\Config\DuplicateQuerySettings;
+use Goodport\QueryDuplicates\Config\ExclusionSettings;
 use Goodport\QueryDuplicates\Config\MethodGroupSettings;
 use Goodport\QueryDuplicates\Support\ExcludeMatcher;
 use Goodport\QueryDuplicates\Support\RelationQueryDetector;
@@ -259,7 +260,7 @@ final class DuplicateQueryAggregatorTest extends TestCase
                 strict: $strict,
                 getGroup: MethodGroupSettings::getDefaults(),
                 otherGroup: MethodGroupSettings::otherDefaults(),
-                exclude: [],
+                exclusions: new ExclusionSettings([], []),
             ),
             excludeMatcher: $excludeMatcher ?? new ExcludeMatcher([]),
             relationDetector: $this->makeDetector($relationCallsites),

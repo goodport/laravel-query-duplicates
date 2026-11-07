@@ -114,7 +114,10 @@ return [
         'prefix' => 'query-duplicates',
         'middleware' => ['web', 'can:view-query-duplicates'],
     ],
-    'exclude' => [],
+    'exclude' => [
+        'routes' => [],
+        'queries' => [],
+    ],
 ];
 ```
 
@@ -130,7 +133,8 @@ return [
 | `admin_route.enabled` | `true` | Registers the admin routes. The page is available even when tracking is disabled. |
 | `admin_route.prefix` | `query-duplicates` | Route prefix. Requests under this prefix are never tracked. |
 | `admin_route.middleware` | `['web', 'can:view-query-duplicates']` | Middleware for the admin routes. |
-| `exclude` | `[]` | SQL substrings and rules with optional bindings excluded from tracking. |
+| `exclude.routes` | `[]` | Route names or patterns with `*`; matching requests are not reported. |
+| `exclude.queries` | `[]` | SQL substrings and rules with optional bindings excluded from tracking. |
 
 `methods` is an associative array. The allowed groups are `get` and `other`; either
 group may be omitted, and a missing group receives its own defaults. Unknown groups
@@ -149,6 +153,8 @@ above.
   use `methods.get.threshold`, every other method uses `methods.other.threshold`.
 - A disabled group does not start collection. Its existing reports and the admin page
   stay available.
+- A request whose route name matches `exclude.routes` is not reported; other routes
+  are tracked normally.
 - A query is considered only when it ran at least the active group threshold times.
 - **N+1**: the query comes from a lazy Eloquent relation, and at least the threshold
   number of executions share the same call site.
@@ -179,13 +185,37 @@ accepted v1 limitation.
 
 ### Exclusions
 
-Each `exclude` entry is either a SQL substring or a rule array. Substrings are
+`exclude` has two branches: `routes` and `queries`.
+
+#### Route exclusions
+
+Route exclusions use named routes. A pattern may contain `*`, for example `admin.*`:
+
+```php
+'exclude' => [
+    'routes' => [
+        'admin.*',
+        'health',
+    ],
+    'queries' => [],
+],
+```
+
+When the route name matches, the whole request is not stored in the reports. Unnamed
+routes cannot match a route exclusion.
+
+#### Query exclusions
+
+Each `queries` entry is either a SQL substring or a rule array. Substrings are
 matched against the normalized SQL returned by Laravel, so `?` placeholders are
 used and bindings do not affect matching:
 
 ```php
 'exclude' => [
-    'select * from `sessions`',
+    'routes' => [],
+    'queries' => [
+        'select * from `sessions`',
+    ],
 ],
 ```
 
@@ -193,11 +223,14 @@ A rule array has a required `sql` substring and optional `bindings`:
 
 ```php
 'exclude' => [
-    [
-        'sql' => 'select * from `example_events` where `category` = ? and `owner_type` = ?',
-        'bindings' => [
-            0 => 'security',
-            1 => 'App\\Example\\Widget',
+    'routes' => [],
+    'queries' => [
+        [
+            'sql' => 'select * from `example_events` where `category` = ? and `owner_type` = ?',
+            'bindings' => [
+                0 => 'security',
+                1 => 'App\\Example\\Widget',
+            ],
         ],
     ],
 ],
@@ -210,14 +243,18 @@ A position that is listed in the rule but missing from the query does not match.
 An empty `bindings` array excludes by SQL only. Several entries are combined with
 OR, and string entries keep their previous behavior.
 
-Invalid rules, such as an empty `sql`, a non-array `bindings` value, or a negative
-or non-integer binding position, stop configuration parsing with an
-`InvalidArgumentException`.
+Invalid entries, such as an empty route pattern, a non-list `routes` value, an empty
+`sql`, a non-array `bindings` value, or a negative or non-integer binding position,
+stop configuration parsing with an `InvalidArgumentException`.
+
+> **Breaking change.** The previous flat `exclude` list was removed. Move SQL
+> substrings and rules under `exclude.queries` and put route patterns under
+> `exclude.routes`. Update a published `config/query-duplicates.php` before upgrading.
 
 The published configuration is a literal array of scalars and arrays, with no
 class references, closures or callables. It keeps working after
 `composer install --no-dev` when the package is not present in `vendor`, and it is
-compatible with `php artisan config:cache`. Application-specific
+compatible with `php artisan config:cache`. Application-specific route and query
 exclusions belong in the publishing application's configuration, not in the package.
 
 ## Admin page

@@ -10,6 +10,7 @@ use Goodport\QueryDuplicates\Listener\RecordQuery;
 use Goodport\QueryDuplicates\Recording\QueryDuplicateRecorder;
 use Goodport\QueryDuplicates\Storage\SqliteStorage;
 use Goodport\QueryDuplicates\Support\ExcludeMatcher;
+use Goodport\QueryDuplicates\Support\RouteExcludeMatcher;
 use Goodport\QueryDuplicates\Support\StackRelationQueryDetector;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
@@ -36,7 +37,13 @@ class QueryDuplicatesServiceProvider extends ServiceProvider
         $this->app->singleton(ExcludeMatcher::class, function (Application $app): ExcludeMatcher {
             $settings = $app->make(DuplicateQuerySettings::class);
 
-            return new ExcludeMatcher($settings->exclude);
+            return new ExcludeMatcher($settings->exclusions->queries);
+        });
+
+        $this->app->singleton(RouteExcludeMatcher::class, function (Application $app): RouteExcludeMatcher {
+            $settings = $app->make(DuplicateQuerySettings::class);
+
+            return new RouteExcludeMatcher($settings->exclusions->routes);
         });
 
         $this->app->singleton(DuplicateQueryAggregator::class, function (Application $app): DuplicateQueryAggregator {
@@ -84,7 +91,11 @@ class QueryDuplicatesServiceProvider extends ServiceProvider
         $this->app->instance(DuplicateQuerySettings::class, $settings);
         $this->app->instance(
             ExcludeMatcher::class,
-            new ExcludeMatcher($settings->exclude),
+            new ExcludeMatcher($settings->exclusions->queries),
+        );
+        $this->app->instance(
+            RouteExcludeMatcher::class,
+            new RouteExcludeMatcher($settings->exclusions->routes),
         );
 
         $this->app->make(Dispatcher::class)->listen(
