@@ -17,6 +17,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | HTTP methods
+    |--------------------------------------------------------------------------
+    |
+    | Only requests with these methods are tracked. An empty list tracks every
+    | method. Values are case-insensitive and normalized to uppercase.
+    | Supported values: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS.
+    |
+    | Example:
+    |
+    | 'methods' => ['GET'],
+    |
+    */
+
+    'methods' => [],
+
+    /*
+    |--------------------------------------------------------------------------
     | Strict duplicate mode
     |--------------------------------------------------------------------------
     |

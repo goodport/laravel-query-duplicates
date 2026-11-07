@@ -16,13 +16,6 @@ final class QueryDuplicateRepository
     ) {}
 
     /**
-     * HTTP methods accepted by the method filter.
-     *
-     * @var list<string>
-     */
-    public const FILTERABLE_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
-
-    /**
      * Columns accepted by the sort parameter.
      *
      * @var list<string>

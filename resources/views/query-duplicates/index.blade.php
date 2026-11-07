@@ -940,7 +940,7 @@
         $nPlusOneType => trans('query-duplicates::query-duplicates.types.n+1'),
     ];
     $unknownTypeLabel = trans('query-duplicates::query-duplicates.types.unknown');
-    $httpMethods = \Goodport\QueryDuplicates\Repository\QueryDuplicateRepository::FILTERABLE_METHODS;
+    $httpMethods = \Goodport\QueryDuplicates\Support\HttpMethods::ALL;
     $sortColumn = $filters['sort'];
     $sortDirection = $filters['direction'];
     $hasFilters = ($filters['q'] ?? '') !== ''

@@ -34,6 +34,12 @@ trait DefinesQueryRoutes
             return response('ok');
         })->whereNumber('times')->name('testing.duplicates.repeat');
 
+        $router->post('/duplicates/posted', function () {
+            $this->runQueryTwice('select ? as posted', [1]);
+
+            return response('ok');
+        })->name('testing.duplicates.posted');
+
         $router->get('/duplicates/different-bindings', function () {
             foreach ([1, 2, 3] as $id) {
                 DB::select('select ? as id', [$id]);

@@ -29,6 +29,11 @@ abstract class TestCase extends Orchestra
     protected ?int $threshold = null;
 
     /**
+     * @var list<string>|null
+     */
+    protected ?array $methods = null;
+
+    /**
      * @var list<string|array{sql: string, bindings?: array<int, mixed>}>|null
      */
     protected ?array $exclude = null;
@@ -175,6 +180,7 @@ abstract class TestCase extends Orchestra
         $overrides = array_filter([
             'strict' => $this->strict,
             'threshold' => $this->threshold,
+            'methods' => $this->methods,
             'exclude' => $this->exclude,
         ], static fn (mixed $value): bool => $value !== null);
 

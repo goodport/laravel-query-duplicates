@@ -32,7 +32,7 @@
 - `src/Repository/QueryDuplicateRepository.php` — read-only search, type and HTTP method filters, whitelisted sorting, and pagination.
 - `src/Services/QueryDuplicateClearer.php` — deletes all reports.
 - `src/Services/QueryDuplicateDeleter.php` — deletes one report by id.
-- `src/Support/` — exclusions and N+1 detection.
+- `src/Support/` — HTTP methods, exclusions, and N+1 detection.
 - `routes/web.php` — admin routes.
 - `resources/views/query-duplicates/index.blade.php` — self-contained admin page.
 - `lang/en/` and `lang/ru/` — page translations.
@@ -45,6 +45,7 @@
 - `SqliteStorage::ensure()` creates the directory and table automatically; no migration is required. Concurrent table creation is tolerated by re-checking `hasTable`.
 - Local application requests, application tests, and the admin page share the same SQLite file. Deleting the file resets all reports.
 - Only SQL executed inside an HTTP request is tracked; console, queue, scheduler, and Octane are out of scope.
+- Only requests whose HTTP method is listed in `methods` are tracked; an empty list tracks every method.
 - N+1 takes priority over duplicate.
 - The trigger threshold is `threshold`.
 - The query string and bindings are never stored; SQL is stored exactly as `QueryExecuted` returned it.

@@ -21,7 +21,36 @@ final class DuplicateQuerySettingsTest extends TestCase
         $this->assertTrue($settings->enabled);
         $this->assertFalse($settings->strict);
         $this->assertSame(2, $settings->threshold);
+        $this->assertSame([], $settings->methods);
         $this->assertSame([], $settings->exclude);
+    }
+
+    /**
+     * Configured methods are trimmed, uppercased and deduplicated.
+     */
+    public function test_methods_are_normalized(): void
+    {
+        $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
+            'methods' => [' get ', 'Post', 'GET'],
+        ]));
+
+        $this->assertSame(['GET', 'POST'], $settings->methods);
+    }
+
+    /**
+     * An unsupported HTTP method is rejected.
+     */
+    public function test_unsupported_method_throws_exception(): void
+    {
+        $this->assertInvalidConfig(['methods' => ['INVALID']], 'query-duplicates.methods');
+    }
+
+    /**
+     * The methods setting must be a list.
+     */
+    public function test_non_list_methods_throws_exception(): void
+    {
+        $this->assertInvalidConfig(['methods' => 'GET'], 'query-duplicates.methods');
     }
 
     /**
@@ -175,12 +204,14 @@ final class DuplicateQuerySettingsTest extends TestCase
             'enabled' => false,
             'strict' => 'yes',
             'threshold' => 1,
+            'methods' => ['INVALID'],
             'exclude' => [''],
         ]));
 
         $this->assertFalse($settings->enabled);
         $this->assertFalse($settings->strict);
         $this->assertSame(2, $settings->threshold);
+        $this->assertSame([], $settings->methods);
         $this->assertSame([], $settings->exclude);
     }
 

@@ -4,6 +4,7 @@ namespace Goodport\QueryDuplicates\Http\Requests;
 
 use Goodport\QueryDuplicates\Aggregator\QueryGroup;
 use Goodport\QueryDuplicates\Repository\QueryDuplicateRepository;
+use Goodport\QueryDuplicates\Support\HttpMethods;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -25,7 +26,7 @@ final class QueryDuplicateIndexRequest extends FormRequest
                 QueryGroup::TYPE__DUPLICATE,
                 QueryGroup::TYPE__N_PLUS_ONE,
             ])],
-            'method' => ['nullable', 'string', Rule::in(QueryDuplicateRepository::FILTERABLE_METHODS)],
+            'method' => ['nullable', 'string', Rule::in(HttpMethods::ALL)],
             'sort' => ['nullable', 'string', Rule::in(QueryDuplicateRepository::SORTABLE)],
             'direction' => ['nullable', 'string', Rule::in(QueryDuplicateRepository::DIRECTIONS)],
         ];

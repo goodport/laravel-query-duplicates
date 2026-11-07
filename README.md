@@ -72,6 +72,7 @@ Delete the SQLite file to reset all reports. There is no migration to roll back.
 // config/query-duplicates.php
 return [
     'enabled' => true,
+    'methods' => [],
     'strict' => false,
     'threshold' => 2,
     'storage_path' => null,
@@ -87,6 +88,7 @@ return [
 | Key | Default | Description |
 | --- | --- | --- |
 | `enabled` | `true` | Registers the query listener and the global middleware. |
+| `methods` | `[]` | HTTP methods to track. An empty list tracks all methods. Values are case-insensitive and normalized to uppercase. |
 | `strict` | `false` | Reports the same SQL regardless of bindings. |
 | `threshold` | `2` | Minimum executions before a query is reported. Used for duplicates and N+1. |
 | `storage_path` | `null` | Path to the package SQLite file. `null` uses `storage/framework/query-duplicates.sqlite`. `:memory:` is used by the package tests. |

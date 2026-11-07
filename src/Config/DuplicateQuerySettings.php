@@ -2,18 +2,21 @@
 
 namespace Goodport\QueryDuplicates\Config;
 
+use Goodport\QueryDuplicates\Support\HttpMethods;
 use InvalidArgumentException;
 
 final readonly class DuplicateQuerySettings
 {
     /**
      * @param  list<string|array{sql: string, bindings: array<int, mixed>}>  $exclude
+     * @param  list<string>  $methods
      */
     public function __construct(
         public bool $enabled,
         public bool $strict,
         public int $threshold,
         public array $exclude,
+        public array $methods = [],
     ) {}
 
     /**
@@ -47,6 +50,7 @@ final readonly class DuplicateQuerySettings
             strict: self::boolean($config, 'strict'),
             threshold: self::integer($config, 'threshold', 2),
             exclude: self::exclusions($config),
+            methods: HttpMethods::normalizeList($config['methods'] ?? []),
         );
     }
 
