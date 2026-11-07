@@ -28,6 +28,7 @@
             --qd-focus: #0c6b56;
 
             --qd-danger: #a4372a;
+            --qd-danger-border: #8f2f24;
             --qd-danger-soft: #fbe9e6;
             --qd-success: #116b4f;
             --qd-success-soft: #e4f4ec;
@@ -67,6 +68,7 @@
                 --qd-focus: #66d7b2;
 
                 --qd-danger: #ff9c8e;
+                --qd-danger-border: #b85448;
                 --qd-danger-soft: #3a1d18;
                 --qd-success: #7fe0b9;
                 --qd-success-soft: #143329;
@@ -681,20 +683,15 @@
         }
 
         .cell-actions {
-            width: 160px;
-            min-width: 160px;
+            width: 100px;
+            min-width: 100px;
             white-space: nowrap;
         }
 
         .row-actions {
             display: flex;
-            flex-direction: column;
+            align-items: center;
             gap: 6px;
-        }
-
-        .row-actions > * {
-            width: 100%;
-            min-width: 0;
         }
 
         .action-form {
@@ -703,11 +700,12 @@
 
         .row-button {
             display: inline-flex;
-            width: 100%;
+            width: 32px;
+            height: 32px;
+            flex: 0 0 32px;
             align-items: center;
             justify-content: center;
-            gap: 6px;
-            padding: 6px 9px;
+            padding: 0;
             border: 1px solid var(--qd-border);
             border-radius: 7px;
             background: var(--qd-surface);
@@ -722,8 +720,8 @@
         }
 
         .row-button .icon {
-            width: 14px;
-            height: 14px;
+            width: 15px;
+            height: 15px;
         }
 
         .copy-button:hover {
@@ -757,7 +755,8 @@
         }
 
         .delete-button {
-            color: var(--qd-faint);
+            border-color: var(--qd-danger-border);
+            color: var(--qd-danger);
         }
 
         .delete-button:hover {
@@ -930,7 +929,6 @@
     </style>
 </head>
 <body
-    data-copy-label="{{ trans('query-duplicates::query-duplicates.copy') }}"
     data-copied-label="{{ trans('query-duplicates::query-duplicates.copied') }}"
     data-error-label="{{ trans('query-duplicates::query-duplicates.copy_failed') }}"
 >
@@ -1183,6 +1181,7 @@
                                     <div class="row-actions">
                                         <button type="button" class="row-button copy-button"
                                                 data-context="{{ json_encode($duplicate->context(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR) }}"
+                                                title="{{ trans('query-duplicates::query-duplicates.copy') }}"
                                                 aria-label="{{ trans('query-duplicates::query-duplicates.copy_aria', ['target' => $duplicate->route ?: $duplicate->path]) }}">
                                             <svg class="icon copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                                  stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
@@ -1195,7 +1194,6 @@
                                                  aria-hidden="true">
                                                 <path d="m5 12 4.5 4.5L19 7"/>
                                             </svg>
-                                            <span class="copy-label">{{ trans('query-duplicates::query-duplicates.copy') }}</span>
                                         </button>
 
                                         <form class="action-form" method="POST"
@@ -1203,6 +1201,7 @@
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="row-button delete-button"
+                                                    title="{{ trans('query-duplicates::query-duplicates.delete') }}"
                                                     aria-label="{{ trans('query-duplicates::query-duplicates.delete_aria', ['target' => $duplicate->route ?: $duplicate->path]) }}">
                                                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                                      stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
@@ -1213,7 +1212,6 @@
                                                     <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/>
                                                     <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
                                                 </svg>
-                                                <span>{{ trans('query-duplicates::query-duplicates.delete') }}</span>
                                             </button>
                                         </form>
                                     </div>
@@ -1361,7 +1359,6 @@
         var COPY_RESET_DELAY_MS = 2400;
         var ANNOUNCE_DELAY_MS = 20;
         var body = document.body;
-        var copyLabel = body.getAttribute('data-copy-label');
         var copiedLabel = body.getAttribute('data-copied-label');
         var errorLabel = body.getAttribute('data-error-label');
 
@@ -1384,8 +1381,8 @@
         }
 
         Array.prototype.forEach.call(document.querySelectorAll('[data-context]'), function (button) {
-            var label = button.querySelector('.copy-label');
             var defaultAriaLabel = button.getAttribute('aria-label');
+            var defaultTitle = button.getAttribute('title');
             var resetTimer = null;
 
             function setState(text, stateClass, accessibleLabel) {
@@ -1405,10 +1402,8 @@
                     button.setAttribute('aria-label', defaultAriaLabel);
                 }
 
-                if (label) {
-                    label.textContent = text;
-                } else {
-                    button.textContent = text;
+                if (defaultTitle) {
+                    button.setAttribute('title', text);
                 }
 
                 resetTimer = window.setTimeout(function () {
@@ -1418,10 +1413,8 @@
                         button.setAttribute('aria-label', defaultAriaLabel);
                     }
 
-                    if (label) {
-                        label.textContent = copyLabel;
-                    } else {
-                        button.textContent = copyLabel;
+                    if (defaultTitle) {
+                        button.setAttribute('title', defaultTitle);
                     }
                 }, COPY_RESET_DELAY_MS);
             }
