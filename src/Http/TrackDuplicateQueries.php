@@ -6,6 +6,7 @@ use Closure;
 use Goodport\QueryDuplicates\Aggregator\DuplicateQueryAggregator;
 use Goodport\QueryDuplicates\Config\AdminRouteDefaults;
 use Goodport\QueryDuplicates\Config\DuplicateQuerySettings;
+use Goodport\QueryDuplicates\Config\MethodGroupSettings;
 use Goodport\QueryDuplicates\Recording\QueryDuplicateRecorder;
 use Goodport\QueryDuplicates\Recording\QueryRequestContext;
 use Illuminate\Http\Request;
@@ -23,16 +24,18 @@ final class TrackDuplicateQueries
      * Starts collection for the duration of the HTTP request.
      *
      * Requests handled by the package admin page are skipped so the page does not
-     * report its own search, pagination, and clear queries. Requests with an HTTP
-     * method outside the configured list are skipped as well.
+     * report its own search, pagination, and clear queries. Requests whose method
+     * group is disabled are skipped as well.
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if ($this->isAdminRequest($request) || ! $this->tracksMethod($request)) {
+        $group = $this->trackedGroup($request);
+
+        if ($group === null) {
             return $next($request);
         }
 
-        $this->aggregator->start();
+        $this->aggregator->start($group->threshold);
 
         try {
             return $next($request);
@@ -46,7 +49,7 @@ final class TrackDuplicateQueries
      */
     public function terminate(Request $request, Response $response): void
     {
-        if ($this->isAdminRequest($request) || ! $this->tracksMethod($request)) {
+        if ($this->trackedGroup($request) === null) {
             return;
         }
 
@@ -64,14 +67,21 @@ final class TrackDuplicateQueries
     }
 
     /**
-     * Tells whether the request method is enabled for tracking.
+     * Returns the enabled method group for a tracked request.
      *
-     * An empty method list means that every method is tracked.
+     * Returns null for the package admin page and for disabled groups.
      */
-    private function tracksMethod(Request $request): bool
+    private function trackedGroup(Request $request): ?MethodGroupSettings
     {
-        return $this->settings->methods === []
-            || in_array($request->getMethod(), $this->settings->methods, true);
+        if ($this->isAdminRequest($request)) {
+            return null;
+        }
+
+        $group = $request->isMethod(Request::METHOD_GET)
+            ? $this->settings->getGroup
+            : $this->settings->otherGroup;
+
+        return $group->enabled ? $group : null;
     }
 
     /**

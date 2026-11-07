@@ -17,20 +17,40 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | HTTP methods
+    | HTTP method groups
     |--------------------------------------------------------------------------
     |
-    | Only requests with these methods are tracked. An empty list tracks every
-    | method. Values are case-insensitive and normalized to uppercase.
-    | Supported values: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS.
+    | Tracking is configured separately for GET requests and for every other
+    | HTTP method: POST, PUT, PATCH, DELETE, HEAD, OPTIONS, and any custom
+    | method. Each group has two settings:
     |
-    | Example:
+    | enabled   - turns tracking on or off for the whole group. A disabled group
+    |             stops creating new reports. Existing reports and the admin
+    |             page stay available.
+    | threshold - minimum number of executions before a query is reported. It
+    |             applies to duplicates and N+1 queries and must be an integer
+    |             of at least 2.
     |
-    | 'methods' => ['GET'],
+    | Reports are still split by the actual HTTP method, so GET and POST
+    | requests create separate report rows. The group threshold is selected for
+    | each HTTP request before collection starts.
+    |
+    | A missing group uses its own defaults. A missing or empty [methods]
+    | section uses the defaults below. Unknown group names and unknown group
+    | settings are rejected.
     |
     */
 
-    'methods' => [],
+    'methods' => [
+        'get' => [
+            'enabled' => true,
+            'threshold' => 2,
+        ],
+        'other' => [
+            'enabled' => true,
+            'threshold' => 5,
+        ],
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -44,18 +64,6 @@ return [
     */
 
     'strict' => false,
-
-    /*
-    |--------------------------------------------------------------------------
-    | Minimum executions
-    |--------------------------------------------------------------------------
-    |
-    | A query is reported when it runs at least this many times. The same
-    | threshold is used for duplicates and N+1 queries.
-    |
-    */
-
-    'threshold' => 2,
 
     /*
     |--------------------------------------------------------------------------

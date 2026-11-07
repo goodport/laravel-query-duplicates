@@ -7,14 +7,16 @@ use Goodport\QueryDuplicates\Tests\TestCase;
 final class MethodTrackingTest extends TestCase
 {
     /**
-     * @var list<string>|null
+     * @var array{get?: array{enabled?: bool, threshold?: int}, other?: array{enabled?: bool, threshold?: int}}|null
      */
-    protected ?array $methods = ['GET'];
+    protected ?array $methods = [
+        'other' => ['enabled' => false],
+    ];
 
     /**
-     * Трекаются только запросы с разрешённым HTTP-методом.
+     * Трекаются только запросы из включённой группы HTTP-методов.
      */
-    public function test_only_configured_http_methods_are_tracked(): void
+    public function test_only_enabled_method_groups_are_tracked(): void
     {
         $this->get(route('testing.duplicates.identical'))->assertOk();
         $this->assertDuplicateCount(1);

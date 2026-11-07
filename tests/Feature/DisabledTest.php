@@ -19,7 +19,10 @@ final class DisabledTest extends TestCase
         parent::defineEnvironment($app);
 
         $app['config']->set('query-duplicates.strict', 'invalid');
-        $app['config']->set('query-duplicates.threshold', 1);
+        $app['config']->set('query-duplicates.methods', [
+            'get' => ['threshold' => 1],
+            'unknown' => [],
+        ]);
         $app['config']->set('query-duplicates.exclude', ['']);
     }
 
@@ -53,7 +56,13 @@ final class DisabledTest extends TestCase
     {
         $this->assertFalse(config('query-duplicates.enabled'));
         $this->assertSame('invalid', config('query-duplicates.strict'));
-        $this->assertSame(1, config('query-duplicates.threshold'));
+        $this->assertSame(
+            [
+                'get' => ['threshold' => 1],
+                'unknown' => [],
+            ],
+            config('query-duplicates.methods'),
+        );
         $this->assertSame([''], config('query-duplicates.exclude'));
     }
 }

@@ -5,6 +5,7 @@ namespace Goodport\QueryDuplicates\Tests\Unit;
 use Goodport\QueryDuplicates\Aggregator\DuplicateQueryAggregator;
 use Goodport\QueryDuplicates\Aggregator\QueryGroup;
 use Goodport\QueryDuplicates\Config\DuplicateQuerySettings;
+use Goodport\QueryDuplicates\Config\MethodGroupSettings;
 use Goodport\QueryDuplicates\Support\ExcludeMatcher;
 use Goodport\QueryDuplicates\Support\RelationQueryDetector;
 use Goodport\QueryDuplicates\Tests\Support\FakeQueryConnection;
@@ -32,7 +33,7 @@ final class DuplicateQueryAggregatorTest extends TestCase
     public function test_identical_repeats_are_duplicates(): void
     {
         $aggregator = $this->makeAggregator();
-        $aggregator->start();
+        $aggregator->start(2);
 
         $this->recordRepeated($aggregator, 'select ? as id', [7], 3);
 
@@ -49,7 +50,7 @@ final class DuplicateQueryAggregatorTest extends TestCase
     public function test_different_bindings_are_not_duplicates_by_default(): void
     {
         $aggregator = $this->makeAggregator();
-        $aggregator->start();
+        $aggregator->start(2);
 
         $this->recordDistinct($aggregator, 'select ? as id', [1, 2, 3]);
 
@@ -62,7 +63,7 @@ final class DuplicateQueryAggregatorTest extends TestCase
     public function test_strict_mode_reports_different_bindings(): void
     {
         $aggregator = $this->makeAggregator(strict: true);
-        $aggregator->start();
+        $aggregator->start(2);
 
         $this->recordDistinct($aggregator, 'select ? as id', [1, 2, 3]);
 
@@ -78,7 +79,7 @@ final class DuplicateQueryAggregatorTest extends TestCase
     public function test_single_execution_is_never_reported(): void
     {
         $aggregator = $this->makeAggregator();
-        $aggregator->start();
+        $aggregator->start(2);
 
         $aggregator->record($this->query('select 1 as single'));
 
@@ -86,16 +87,32 @@ final class DuplicateQueryAggregatorTest extends TestCase
     }
 
     /**
-     * The shared threshold controls duplicate reporting.
+     * A duplicate below the active threshold is not reported.
      */
     public function test_duplicate_below_threshold_is_not_reported(): void
     {
-        $aggregator = $this->makeAggregator(threshold: 3);
-        $aggregator->start();
+        $aggregator = $this->makeAggregator();
+        $aggregator->start(3);
 
         $this->recordRepeated($aggregator, 'select ? as id', [7], 2);
 
         $this->assertSame([], $aggregator->report());
+    }
+
+    /**
+     * A duplicate exactly at the active threshold is reported.
+     */
+    public function test_duplicate_at_threshold_is_reported(): void
+    {
+        $aggregator = $this->makeAggregator();
+        $aggregator->start(3);
+
+        $this->recordRepeated($aggregator, 'select ? as id', [7], 3);
+
+        $groups = $aggregator->report();
+
+        $this->assertCount(1, $groups);
+        $this->assertSame(QueryGroup::TYPE__DUPLICATE, $groups[0]->type);
     }
 
     /**
@@ -104,7 +121,7 @@ final class DuplicateQueryAggregatorTest extends TestCase
     public function test_relation_repeated_from_one_callsite_is_n_plus_one(): void
     {
         $aggregator = $this->makeAggregator(relationCallsites: [self::USER_RELATION_CALLSITE]);
-        $aggregator->start();
+        $aggregator->start(3);
 
         $this->recordDistinct($aggregator, 'select * from `posts` where `user_id` = ?', [1, 2, 3]);
 
@@ -120,7 +137,7 @@ final class DuplicateQueryAggregatorTest extends TestCase
     public function test_relation_with_identical_bindings_is_n_plus_one(): void
     {
         $aggregator = $this->makeAggregator(relationCallsites: [self::USER_RELATION_CALLSITE]);
-        $aggregator->start();
+        $aggregator->start(2);
 
         $this->recordRepeated($aggregator, 'select * from `posts`', [], 2);
 
@@ -139,7 +156,7 @@ final class DuplicateQueryAggregatorTest extends TestCase
             self::USER_RELATION_CALLSITE,
             self::ORDER_RELATION_CALLSITE,
         ]);
-        $aggregator->start();
+        $aggregator->start(2);
 
         $this->recordDistinct($aggregator, 'select * from `posts` where `user_id` = ?', [1, 2]);
 
@@ -147,15 +164,12 @@ final class DuplicateQueryAggregatorTest extends TestCase
     }
 
     /**
-     * The N+1 threshold is shared with duplicates.
+     * A relation below the active threshold is not reported.
      */
     public function test_relation_below_threshold_is_not_reported(): void
     {
-        $aggregator = $this->makeAggregator(
-            threshold: 3,
-            relationCallsites: [self::USER_RELATION_CALLSITE],
-        );
-        $aggregator->start();
+        $aggregator = $this->makeAggregator(relationCallsites: [self::USER_RELATION_CALLSITE]);
+        $aggregator->start(3);
 
         $this->recordDistinct($aggregator, 'select * from `posts` where `user_id` = ?', [1, 2]);
 
@@ -168,7 +182,7 @@ final class DuplicateQueryAggregatorTest extends TestCase
     public function test_report_is_sorted_by_total_time_then_executions(): void
     {
         $aggregator = $this->makeAggregator();
-        $aggregator->start();
+        $aggregator->start(2);
 
         $this->recordRepeated($aggregator, 'select 1 as slow', [], 2, 3.0);
         $this->recordRepeated($aggregator, 'select 1 as fast-many', [], 4, 1.0);
@@ -189,7 +203,7 @@ final class DuplicateQueryAggregatorTest extends TestCase
         $aggregator = $this->makeAggregator(
             excludeMatcher: new ExcludeMatcher(['as sessions']),
         );
-        $aggregator->start();
+        $aggregator->start(2);
 
         foreach (['select 1 as sessions', 'select 2 as kept'] as $sql) {
             $this->recordRepeated($aggregator, $sql, [], 2);
@@ -207,10 +221,10 @@ final class DuplicateQueryAggregatorTest extends TestCase
     public function test_start_resets_previous_area(): void
     {
         $aggregator = $this->makeAggregator();
-        $aggregator->start();
+        $aggregator->start(2);
         $this->recordRepeated($aggregator, 'select 1 as previous', [], 2);
 
-        $aggregator->start();
+        $aggregator->start(2);
         $this->recordRepeated($aggregator, 'select 2 as current', [], 2);
 
         $groups = $aggregator->report();
@@ -237,14 +251,14 @@ final class DuplicateQueryAggregatorTest extends TestCase
     private function makeAggregator(
         ?ExcludeMatcher $excludeMatcher = null,
         bool $strict = false,
-        int $threshold = 2,
         array $relationCallsites = [],
     ): DuplicateQueryAggregator {
         return new DuplicateQueryAggregator(
             settings: new DuplicateQuerySettings(
                 enabled: true,
                 strict: $strict,
-                threshold: $threshold,
+                getGroup: MethodGroupSettings::getDefaults(),
+                otherGroup: MethodGroupSettings::otherDefaults(),
                 exclude: [],
             ),
             excludeMatcher: $excludeMatcher ?? new ExcludeMatcher([]),

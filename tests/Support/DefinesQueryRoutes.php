@@ -34,8 +34,14 @@ trait DefinesQueryRoutes
             return response('ok');
         })->whereNumber('times')->name('testing.duplicates.repeat');
 
+        $router->match(['GET', 'POST'], '/duplicates/threshold/{times}', function (int $times) {
+            $this->runQueryTimes($times, 'select ? as threshold', [7]);
+
+            return response('ok');
+        })->whereNumber('times')->name('testing.duplicates.threshold');
+
         $router->post('/duplicates/posted', function () {
-            $this->runQueryTwice('select ? as posted', [1]);
+            $this->runQueryTimes(5, 'select ? as posted', [1]);
 
             return response('ok');
         })->name('testing.duplicates.posted');
@@ -118,7 +124,7 @@ trait DefinesQueryRoutes
      *
      * @param  array<int, mixed>  $bindings
      */
-    private function runQueryTimes(
+    protected function runQueryTimes(
         int $times,
         string $sql,
         array $bindings = [],

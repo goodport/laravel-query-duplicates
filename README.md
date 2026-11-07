@@ -35,6 +35,10 @@ commands, factories, seeders, and post-request assertions do not produce reports
 This is not production monitoring: the package is intended for development and test
 runs.
 
+The default thresholds are tuned for test runs: GET requests are reported from 2
+executions, and other HTTP methods from 5. Adjust the thresholds or disable a method
+group in the configuration when a test suite produces too many or too few reports.
+
 ## Requirements
 
 - PHP 8.3+
@@ -93,9 +97,17 @@ Delete the SQLite file to reset all reports. There is no migration to roll back.
 // config/query-duplicates.php
 return [
     'enabled' => true,
-    'methods' => [],
+    'methods' => [
+        'get' => [
+            'enabled' => true,
+            'threshold' => 2,
+        ],
+        'other' => [
+            'enabled' => true,
+            'threshold' => 5,
+        ],
+    ],
     'strict' => false,
-    'threshold' => 2,
     'storage_path' => null,
     'admin_route' => [
         'enabled' => true,
@@ -109,24 +121,43 @@ return [
 | Key | Default | Description |
 | --- | --- | --- |
 | `enabled` | `true` | Registers the query listener and the global middleware. |
-| `methods` | `[]` | HTTP methods to track. An empty list tracks all methods. Values are case-insensitive and normalized to uppercase. |
+| `methods.get.enabled` | `true` | Tracks GET requests. |
+| `methods.get.threshold` | `2` | Minimum executions before a GET query is reported. Used for duplicates and N+1. |
+| `methods.other.enabled` | `true` | Tracks every non-GET method: POST, PUT, PATCH, DELETE, HEAD, OPTIONS, and custom methods. |
+| `methods.other.threshold` | `5` | Minimum executions before a non-GET query is reported. Used for duplicates and N+1. |
 | `strict` | `false` | Reports the same SQL regardless of bindings. |
-| `threshold` | `2` | Minimum executions before a query is reported. Used for duplicates and N+1. |
 | `storage_path` | `null` | Path to the package SQLite file. `null` uses `storage/framework/query-duplicates.sqlite`. `:memory:` is used by the package tests. |
 | `admin_route.enabled` | `true` | Registers the admin routes. The page is available even when tracking is disabled. |
 | `admin_route.prefix` | `query-duplicates` | Route prefix. Requests under this prefix are never tracked. |
 | `admin_route.middleware` | `['web', 'can:view-query-duplicates']` | Middleware for the admin routes. |
 | `exclude` | `[]` | SQL substrings and rules with optional bindings excluded from tracking. |
 
+`methods` is an associative array. The allowed groups are `get` and `other`; either
+group may be omitted, and a missing group receives its own defaults. Unknown groups
+and unknown group settings stop configuration parsing with an
+`InvalidArgumentException`. A missing or empty `methods` section uses the defaults
+above.
+
+> **Breaking change.** The previous global `threshold` setting and the flat method
+> list such as `methods => ['GET']` are no longer supported. Update a published
+> `config/query-duplicates.php` to the grouped `methods` structure shown above before
+> upgrading. The empty `methods => []` form still works and means both default groups.
+
 ### Reporting rules
 
-- A query is considered only when it ran at least `threshold` times.
-- **N+1**: the query comes from a lazy Eloquent relation, and at least `threshold`
-  executions share the same call site.
-- **Duplicate**: the same SQL ran at least `threshold` times. In non-strict mode,
-  the bindings must also match. In strict mode, bindings are ignored.
+- The threshold is selected per HTTP request before collection starts: GET requests
+  use `methods.get.threshold`, every other method uses `methods.other.threshold`.
+- A disabled group does not start collection. Its existing reports and the admin page
+  stay available.
+- A query is considered only when it ran at least the active group threshold times.
+- **N+1**: the query comes from a lazy Eloquent relation, and at least the threshold
+  number of executions share the same call site.
+- **Duplicate**: the same SQL ran at least the threshold number of times. In
+  non-strict mode, the bindings must also match. In strict mode, bindings are ignored.
 - N+1 has priority: a relation query is reported as `n+1`, not as a duplicate.
 - A single execution is never reported.
+- Reports are still split by the actual HTTP method, so a GET and a POST request never
+  share a report row.
 
 ### Report identity
 

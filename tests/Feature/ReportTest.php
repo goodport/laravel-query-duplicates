@@ -65,6 +65,24 @@ final class ReportTest extends TestCase
     }
 
     /**
+     * The same SQL from GET and POST requests creates separate reports.
+     */
+    public function test_same_sql_with_different_methods_creates_separate_reports(): void
+    {
+        $this->get(route('testing.duplicates.threshold', ['times' => 2]))->assertOk();
+        $this->post(route('testing.duplicates.threshold', ['times' => 5]))->assertOk();
+
+        $rows = $this->duplicateRows();
+
+        $this->assertCount(2, $rows);
+        $this->assertEqualsCanonicalizing(['GET', 'POST'], $rows->pluck('method')->all());
+        $this->assertSame(
+            ['select ? as threshold'],
+            $rows->pluck('sql')->unique()->values()->all(),
+        );
+    }
+
+    /**
      * The stored path has no query string or request parameters.
      */
     public function test_path_has_no_query_string(): void

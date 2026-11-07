@@ -2,21 +2,19 @@
 
 namespace Goodport\QueryDuplicates\Config;
 
-use Goodport\QueryDuplicates\Support\HttpMethods;
 use InvalidArgumentException;
 
 final readonly class DuplicateQuerySettings
 {
     /**
      * @param  list<string|array{sql: string, bindings: array<int, mixed>}>  $exclude
-     * @param  list<string>  $methods
      */
     public function __construct(
         public bool $enabled,
         public bool $strict,
-        public int $threshold,
+        public MethodGroupSettings $getGroup,
+        public MethodGroupSettings $otherGroup,
         public array $exclude,
-        public array $methods = [],
     ) {}
 
     /**
@@ -45,12 +43,16 @@ final readonly class DuplicateQuerySettings
      */
     private static function parse(array $config, bool $enabled): self
     {
+        ['get' => $getGroup, 'other' => $otherGroup] = MethodGroupSettings::fromConfig(
+            $config['methods'] ?? null,
+        );
+
         return new self(
             enabled: $enabled,
             strict: self::boolean($config, 'strict'),
-            threshold: self::integer($config, 'threshold', 2),
+            getGroup: $getGroup,
+            otherGroup: $otherGroup,
             exclude: self::exclusions($config),
-            methods: HttpMethods::normalizeList($config['methods'] ?? []),
         );
     }
 
@@ -87,27 +89,6 @@ final readonly class DuplicateQuerySettings
         $defaults = require dirname(__DIR__, 2).'/config/query-duplicates.php';
 
         return $defaults;
-    }
-
-    /**
-     * Reads an integer value within the allowed range.
-     *
-     * @param  array<string, mixed>  $config
-     */
-    private static function integer(array $config, string $key, int $minimum): int
-    {
-        $value = $config[$key] ?? null;
-        $parsed = is_int($value)
-            ? $value
-            : (is_string($value) ? filter_var($value, FILTER_VALIDATE_INT) : false);
-
-        if ($parsed === false || $parsed < $minimum) {
-            throw new InvalidArgumentException(
-                "The [query-duplicates.{$key}] config value must be an integer greater than or equal to {$minimum}.",
-            );
-        }
-
-        return $parsed;
     }
 
     /**

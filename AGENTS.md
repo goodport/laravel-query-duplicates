@@ -25,6 +25,7 @@
 - `src/Config/AdminRouteDefaults.php` — safe admin route defaults and normalization.
 - `src/Config/BooleanValue.php` — strict boolean config parsing shared by settings and the admin route.
 - `src/Config/DuplicateQuerySettings.php` — tracking config parsing and validation.
+- `src/Config/MethodGroupSettings.php` — GET and non-GET method group settings, defaults, and parsing.
 - `src/Models/QueryDuplicate.php` — report model fixed to the `query-duplicates` connection.
 - `src/Recording/ReportKey.php` — path and SQL normalization and the SHA-256 report identity.
 - `src/Recording/QueryDuplicateRecorder.php` — batched `upsert` + `increment`, database failure isolation.
@@ -45,9 +46,11 @@
 - `SqliteStorage::ensure()` creates the directory and table automatically; no migration is required. Concurrent table creation is tolerated by re-checking `hasTable`.
 - Local application requests, application tests, and the admin page share the same SQLite file. Deleting the file resets all reports.
 - Only SQL executed inside an HTTP request is tracked; console, queue, scheduler, and Octane are out of scope.
-- Only requests whose HTTP method is listed in `methods` are tracked; an empty list tracks every method.
+- Tracking is configured in two groups under `methods`: `get` for GET requests and `other` for every non-GET method, including custom methods.
+- Each group has `enabled` and `threshold`. A disabled group does not start collection; its existing reports and the admin page stay available.
+- The group threshold is selected per HTTP request before collection starts and applies to both duplicates and N+1. GET defaults to `2`, other methods default to `5`.
+- Reports are still split by the actual HTTP method.
 - N+1 takes priority over duplicate.
-- The trigger threshold is `threshold`.
 - The query string and bindings are never stored; SQL is stored exactly as `QueryExecuted` returned it.
 - One report identity is one row. The identity is built from method, route (or normalized path), normalized SQL, and type, then hashed with SHA-256.
 - Repeated reports update `path`, `route`, `sql`, `query_count`, `time_ms`, `type`, and `updated_at`, and increase `occurrences`. `created_at` is the first occurrence and `updated_at` is the last one.

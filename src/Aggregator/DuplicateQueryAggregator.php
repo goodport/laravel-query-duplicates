@@ -3,6 +3,7 @@
 namespace Goodport\QueryDuplicates\Aggregator;
 
 use Goodport\QueryDuplicates\Config\DuplicateQuerySettings;
+use Goodport\QueryDuplicates\Config\MethodGroupSettings;
 use Goodport\QueryDuplicates\Support\ExcludeMatcher;
 use Goodport\QueryDuplicates\Support\RelationQueryDetector;
 use Illuminate\Database\Events\QueryExecuted;
@@ -16,6 +17,11 @@ final class DuplicateQueryAggregator
 
     private bool $active = false;
 
+    /**
+     * Reporting threshold selected for the current HTTP request.
+     */
+    private int $threshold = MethodGroupSettings::MINIMUM_THRESHOLD;
+
     public function __construct(
         private readonly DuplicateQuerySettings $settings,
         private readonly ExcludeMatcher $excludeMatcher,
@@ -23,11 +29,12 @@ final class DuplicateQueryAggregator
     ) {}
 
     /**
-     * Starts a new collection area and resets the previous one.
+     * Starts a new collection area with the given reporting threshold.
      */
-    public function start(): void
+    public function start(int $threshold): void
     {
         $this->reset();
+        $this->threshold = $threshold;
         $this->active = true;
     }
 
@@ -50,6 +57,7 @@ final class DuplicateQueryAggregator
     public function reset(): void
     {
         $this->active = false;
+        $this->threshold = MethodGroupSettings::MINIMUM_THRESHOLD;
         $this->groups = [];
     }
 
@@ -141,7 +149,7 @@ final class DuplicateQueryAggregator
             return;
         }
 
-        $group->recordRelationExecution($callsite, $this->settings->threshold);
+        $group->recordRelationExecution($callsite, $this->threshold);
     }
 
     /**
@@ -149,7 +157,7 @@ final class DuplicateQueryAggregator
      */
     private function typeFor(QueryGroup $group): ?string
     {
-        if ($group->executions < $this->settings->threshold) {
+        if ($group->executions < $this->threshold) {
             return null;
         }
 
@@ -157,7 +165,7 @@ final class DuplicateQueryAggregator
             return QueryGroup::TYPE__N_PLUS_ONE;
         }
 
-        if ($this->settings->strict || $group->maxIdenticalRepeats >= $this->settings->threshold) {
+        if ($this->settings->strict || $group->maxIdenticalRepeats >= $this->threshold) {
             return QueryGroup::TYPE__DUPLICATE;
         }
 

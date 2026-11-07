@@ -3,6 +3,7 @@
 namespace Goodport\QueryDuplicates\Tests\Unit;
 
 use Goodport\QueryDuplicates\Config\DuplicateQuerySettings;
+use Goodport\QueryDuplicates\Config\MethodGroupSettings;
 use Goodport\QueryDuplicates\Tests\Support\LoadsPackageConfig;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
@@ -20,37 +21,134 @@ final class DuplicateQuerySettingsTest extends TestCase
 
         $this->assertTrue($settings->enabled);
         $this->assertFalse($settings->strict);
-        $this->assertSame(2, $settings->threshold);
-        $this->assertSame([], $settings->methods);
+        $this->assertTrue($settings->getGroup->enabled);
+        $this->assertSame(2, $settings->getGroup->threshold);
+        $this->assertTrue($settings->otherGroup->enabled);
+        $this->assertSame(5, $settings->otherGroup->threshold);
         $this->assertSame([], $settings->exclude);
     }
 
     /**
-     * Configured methods are trimmed, uppercased and deduplicated.
+     * A missing methods section uses both default groups.
      */
-    public function test_methods_are_normalized(): void
+    public function test_missing_methods_section_uses_default_groups(): void
+    {
+        $config = $this->packageConfig();
+        unset($config['methods']);
+
+        $settings = DuplicateQuerySettings::fromConfig($config);
+
+        $this->assertEquals(MethodGroupSettings::getDefaults(), $settings->getGroup);
+        $this->assertEquals(MethodGroupSettings::otherDefaults(), $settings->otherGroup);
+    }
+
+    /**
+     * An empty methods section uses both default groups.
+     */
+    public function test_empty_methods_section_uses_default_groups(): void
     {
         $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
-            'methods' => [' get ', 'Post', 'GET'],
+            'methods' => [],
         ]));
 
-        $this->assertSame(['GET', 'POST'], $settings->methods);
+        $this->assertEquals(MethodGroupSettings::getDefaults(), $settings->getGroup);
+        $this->assertEquals(MethodGroupSettings::otherDefaults(), $settings->otherGroup);
     }
 
     /**
-     * An unsupported HTTP method is rejected.
+     * Custom group values are loaded.
      */
-    public function test_unsupported_method_throws_exception(): void
+    public function test_custom_group_values_are_loaded(): void
     {
-        $this->assertInvalidConfig(['methods' => ['INVALID']], 'query-duplicates.methods');
+        $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
+            'methods' => [
+                'get' => ['enabled' => false, 'threshold' => 4],
+                'other' => ['enabled' => true, 'threshold' => 6],
+            ],
+        ]));
+
+        $this->assertFalse($settings->getGroup->enabled);
+        $this->assertSame(4, $settings->getGroup->threshold);
+        $this->assertTrue($settings->otherGroup->enabled);
+        $this->assertSame(6, $settings->otherGroup->threshold);
     }
 
     /**
-     * The methods setting must be a list.
+     * A missing group uses its own defaults.
      */
-    public function test_non_list_methods_throws_exception(): void
+    public function test_missing_group_uses_its_defaults(): void
+    {
+        $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
+            'methods' => [
+                'get' => ['threshold' => 3],
+            ],
+        ]));
+
+        $this->assertTrue($settings->getGroup->enabled);
+        $this->assertSame(3, $settings->getGroup->threshold);
+        $this->assertEquals(MethodGroupSettings::otherDefaults(), $settings->otherGroup);
+    }
+
+    /**
+     * A missing group setting uses the group default.
+     */
+    public function test_missing_group_setting_uses_group_default(): void
+    {
+        $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
+            'methods' => [
+                'other' => ['enabled' => false],
+            ],
+        ]));
+
+        $this->assertFalse($settings->otherGroup->enabled);
+        $this->assertSame(5, $settings->otherGroup->threshold);
+        $this->assertEquals(MethodGroupSettings::getDefaults(), $settings->getGroup);
+    }
+
+    /**
+     * The methods section must be an array of groups.
+     */
+    public function test_non_array_methods_section_throws_exception(): void
     {
         $this->assertInvalidConfig(['methods' => 'GET'], 'query-duplicates.methods');
+    }
+
+    /**
+     * The previous flat method list is rejected.
+     */
+    public function test_flat_method_list_throws_exception(): void
+    {
+        $this->assertInvalidConfig(['methods' => ['GET']], 'query-duplicates.methods');
+    }
+
+    /**
+     * Unknown method groups are rejected.
+     */
+    public function test_unknown_method_group_throws_exception(): void
+    {
+        $this->assertInvalidConfig(['methods' => ['post' => []]], 'query-duplicates.methods');
+    }
+
+    /**
+     * A group value must be an array.
+     */
+    public function test_non_array_group_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['methods' => ['get' => 'GET']],
+            'query-duplicates.methods.get',
+        );
+    }
+
+    /**
+     * A group enabled flag must be a boolean.
+     */
+    public function test_non_boolean_group_enabled_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['methods' => ['get' => ['enabled' => 'yes']]],
+            'query-duplicates.methods.get.enabled',
+        );
     }
 
     /**
@@ -58,7 +156,32 @@ final class DuplicateQuerySettingsTest extends TestCase
      */
     public function test_threshold_below_two_throws_exception(): void
     {
-        $this->assertInvalidConfig(['threshold' => 1], 'query-duplicates.threshold');
+        $this->assertInvalidConfig(
+            ['methods' => ['other' => ['threshold' => 1]]],
+            'query-duplicates.methods.other.threshold',
+        );
+    }
+
+    /**
+     * A non-integer threshold is invalid.
+     */
+    public function test_non_integer_threshold_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['methods' => ['other' => ['threshold' => 'many']]],
+            'query-duplicates.methods.other.threshold',
+        );
+    }
+
+    /**
+     * Unknown group settings are rejected.
+     */
+    public function test_unknown_group_setting_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['methods' => ['get' => ['limit' => 3]]],
+            'query-duplicates.methods.get',
+        );
     }
 
     /**
@@ -203,15 +326,14 @@ final class DuplicateQuerySettingsTest extends TestCase
         $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
             'enabled' => false,
             'strict' => 'yes',
-            'threshold' => 1,
-            'methods' => ['INVALID'],
+            'methods' => ['get' => ['threshold' => 1], 'unknown' => []],
             'exclude' => [''],
         ]));
 
         $this->assertFalse($settings->enabled);
         $this->assertFalse($settings->strict);
-        $this->assertSame(2, $settings->threshold);
-        $this->assertSame([], $settings->methods);
+        $this->assertEquals(MethodGroupSettings::getDefaults(), $settings->getGroup);
+        $this->assertEquals(MethodGroupSettings::otherDefaults(), $settings->otherGroup);
         $this->assertSame([], $settings->exclude);
     }
 
