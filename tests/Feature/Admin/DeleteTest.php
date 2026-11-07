@@ -39,6 +39,7 @@ final class DeleteTest extends TestCase
         $filters = [
             'q' => 'posts',
             'type' => 'duplicate',
+            'method' => 'GET',
             'sort' => 'time_ms',
             'direction' => 'asc',
             'page' => '2',

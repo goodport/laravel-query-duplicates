@@ -25,6 +25,7 @@ final class QueryDuplicateIndexRequest extends FormRequest
                 QueryGroup::TYPE__DUPLICATE,
                 QueryGroup::TYPE__N_PLUS_ONE,
             ])],
+            'method' => ['nullable', 'string', Rule::in(QueryDuplicateRepository::FILTERABLE_METHODS)],
             'sort' => ['nullable', 'string', Rule::in(QueryDuplicateRepository::SORTABLE)],
             'direction' => ['nullable', 'string', Rule::in(QueryDuplicateRepository::DIRECTIONS)],
         ];

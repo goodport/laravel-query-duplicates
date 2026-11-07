@@ -100,6 +100,28 @@ final class IndexTest extends TestCase
     }
 
     /**
+     * The method filter keeps only the selected HTTP method.
+     */
+    public function test_method_filter_keeps_only_selected_method(): void
+    {
+        $this->allowQueryDuplicates();
+
+        $this->insertDuplicate([
+            'route' => 'posts.store',
+            'method' => 'POST',
+        ]);
+        $this->insertDuplicate([
+            'route' => 'posts.index',
+            'method' => 'GET',
+        ]);
+
+        $this->get(route('query-duplicates.index', ['method' => 'POST']))
+            ->assertOk()
+            ->assertSee('posts.store')
+            ->assertDontSee('posts.index');
+    }
+
+    /**
      * Every documented sort column orders the rows.
      */
     public function test_sorting_by_documented_columns(): void

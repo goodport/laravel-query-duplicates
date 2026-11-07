@@ -203,7 +203,7 @@ Access can also be restricted with application middleware instead of a gate:
 The page supports:
 
 - search by `route`, `path`, and `sql`, case-insensitive;
-- filtering by `type` (`duplicate` or `n+1`);
+- filtering by `type` (`duplicate` or `n+1`) and HTTP method (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`);
 - sorting by `method`, `updated_at`, `query_count`, `time_ms`, and `occurrences`;
 - the default order is `query_count` descending;
 - pagination with 30 rows per page;

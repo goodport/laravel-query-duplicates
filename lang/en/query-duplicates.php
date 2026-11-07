@@ -14,6 +14,8 @@ return [
     'search_placeholder' => 'Route, path, or SQL',
     'type' => 'Type',
     'type_all' => 'All types',
+    'method' => 'Method',
+    'method_all' => 'All methods',
     'apply' => 'Apply',
     'reset' => 'Reset',
     'storage_path' => 'SQLite storage: :path',

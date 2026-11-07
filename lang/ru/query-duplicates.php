@@ -14,6 +14,8 @@ return [
     'search_placeholder' => 'Route, path или SQL',
     'type' => 'Тип',
     'type_all' => 'Все типы',
+    'method' => 'Метод',
+    'method_all' => 'Все методы',
     'apply' => 'Применить',
     'reset' => 'Сбросить',
     'storage_path' => 'Хранилище SQLite: :path',

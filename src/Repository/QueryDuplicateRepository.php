@@ -16,6 +16,13 @@ final class QueryDuplicateRepository
     ) {}
 
     /**
+     * HTTP methods accepted by the method filter.
+     *
+     * @var list<string>
+     */
+    public const FILTERABLE_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
+
+    /**
      * Columns accepted by the sort parameter.
      *
      * @var list<string>
@@ -39,8 +46,8 @@ final class QueryDuplicateRepository
      * The same array is passed to the query and to the view, so the highlighted
      * column always matches the applied ordering.
      *
-     * @param  array{q?: string|null, type?: string|null, sort?: string|null, direction?: string|null}  $filters
-     * @return array{q?: string|null, type?: string|null, sort: string, direction: string}
+     * @param  array{q?: string|null, type?: string|null, method?: string|null, sort?: string|null, direction?: string|null}  $filters
+     * @return array{q?: string|null, type?: string|null, method?: string|null, sort: string, direction: string}
      */
     public function normalizeFilters(array $filters): array
     {
@@ -53,7 +60,7 @@ final class QueryDuplicateRepository
     /**
      * Returns the filtered and sorted report page.
      *
-     * @param  array{q?: string|null, type?: string|null, sort?: string|null, direction?: string|null}  $filters
+     * @param  array{q?: string|null, type?: string|null, method?: string|null, sort?: string|null, direction?: string|null}  $filters
      */
     public function getPage(array $filters): LengthAwarePaginator
     {
@@ -63,6 +70,7 @@ final class QueryDuplicateRepository
 
         $this->applySearch($query, $filters['q'] ?? null);
         $this->applyType($query, $filters['type'] ?? null);
+        $this->applyMethod($query, $filters['method'] ?? null);
 
         return $query
             ->orderBy(
@@ -103,6 +111,18 @@ final class QueryDuplicateRepository
         }
 
         $query->where('type', $type);
+    }
+
+    /**
+     * Applies the HTTP method filter.
+     */
+    private function applyMethod(Builder $query, ?string $method): void
+    {
+        if ($method === null || $method === '') {
+            return;
+        }
+
+        $query->where('method', $method);
     }
 
     /**

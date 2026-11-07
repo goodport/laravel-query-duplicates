@@ -29,7 +29,7 @@
 - `src/Recording/ReportKey.php` — path and SQL normalization and the SHA-256 report identity.
 - `src/Recording/QueryDuplicateRecorder.php` — batched `upsert` + `increment`, database failure isolation.
 - `src/Recording/QueryRequestContext.php` — method, path, and route of one request.
-- `src/Repository/QueryDuplicateRepository.php` — read-only search, type filter, whitelisted sorting, and pagination.
+- `src/Repository/QueryDuplicateRepository.php` — read-only search, type and HTTP method filters, whitelisted sorting, and pagination.
 - `src/Services/QueryDuplicateClearer.php` — deletes all reports.
 - `src/Services/QueryDuplicateDeleter.php` — deletes one report by id.
 - `src/Support/` — exclusions and N+1 detection.

@@ -940,9 +940,12 @@
         $nPlusOneType => trans('query-duplicates::query-duplicates.types.n+1'),
     ];
     $unknownTypeLabel = trans('query-duplicates::query-duplicates.types.unknown');
+    $httpMethods = \Goodport\QueryDuplicates\Repository\QueryDuplicateRepository::FILTERABLE_METHODS;
     $sortColumn = $filters['sort'];
     $sortDirection = $filters['direction'];
-    $hasFilters = ($filters['q'] ?? '') !== '' || ($filters['type'] ?? '') !== '';
+    $hasFilters = ($filters['q'] ?? '') !== ''
+        || ($filters['type'] ?? '') !== ''
+        || ($filters['method'] ?? '') !== '';
     $sortUrl = function (string $column) use ($filters, $sortColumn, $sortDirection): string {
         $nextDirection = $sortColumn === $column && $sortDirection === 'desc' ? 'asc' : 'desc';
 
@@ -1056,6 +1059,18 @@
                         @foreach ($typeLabels as $type => $typeLabel)
                             <option value="{{ $type }}" @selected(($filters['type'] ?? '') === $type)>
                                 {{ $typeLabel }}
+                            </option>
+                        @endforeach
+                    </select>
+                </label>
+
+                <label class="field">
+                    <span class="label">{{ trans('query-duplicates::query-duplicates.method') }}</span>
+                    <select class="select" name="method">
+                        <option value="">{{ trans('query-duplicates::query-duplicates.method_all') }}</option>
+                        @foreach ($httpMethods as $httpMethod)
+                            <option value="{{ $httpMethod }}" @selected(($filters['method'] ?? '') === $httpMethod)>
+                                {{ $httpMethod }}
                             </option>
                         @endforeach
                     </select>
