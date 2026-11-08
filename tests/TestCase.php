@@ -32,7 +32,7 @@ abstract class TestCase extends Orchestra
     protected ?array $methods = null;
 
     /**
-     * @var array{routes?: list<string>, queries?: list<string|array{sql: string, bindings?: array<int, mixed>}>}|null
+     * @var list<array{route?: string, query?: string|array{sql: string, bindings?: array<int, mixed>}}>|null
      */
     protected ?array $exclude = null;
 

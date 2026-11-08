@@ -7,8 +7,7 @@ use Goodport\QueryDuplicates\Tests\TestCase;
 final class RouteWildcardExclusionTest extends TestCase
 {
     protected ?array $exclude = [
-        'routes' => ['testing.duplicates.id*'],
-        'queries' => [],
+        ['route' => 'testing.duplicates.id*'],
     ];
 
     /**

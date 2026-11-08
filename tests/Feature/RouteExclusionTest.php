@@ -7,8 +7,7 @@ use Goodport\QueryDuplicates\Tests\TestCase;
 final class RouteExclusionTest extends TestCase
 {
     protected ?array $exclude = [
-        'routes' => ['testing.duplicates.identical'],
-        'queries' => [],
+        ['route' => 'testing.duplicates.identical'],
     ];
 
     /**

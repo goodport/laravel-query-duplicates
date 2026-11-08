@@ -7,16 +7,17 @@ use Goodport\QueryDuplicates\Config\AdminRouteDefaults;
 use Goodport\QueryDuplicates\Config\DuplicateQuerySettings;
 use Goodport\QueryDuplicates\Http\TrackDuplicateQueries;
 use Goodport\QueryDuplicates\Listener\RecordQuery;
+use Goodport\QueryDuplicates\Listener\SetMatchedRoute;
 use Goodport\QueryDuplicates\Recording\QueryDuplicateRecorder;
 use Goodport\QueryDuplicates\Storage\SqliteStorage;
 use Goodport\QueryDuplicates\Support\ExcludeMatcher;
-use Goodport\QueryDuplicates\Support\RouteExcludeMatcher;
 use Goodport\QueryDuplicates\Support\StackRelationQueryDetector;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel as KernelContract;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
+use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
 
@@ -37,13 +38,7 @@ class QueryDuplicatesServiceProvider extends ServiceProvider
         $this->app->singleton(ExcludeMatcher::class, function (Application $app): ExcludeMatcher {
             $settings = $app->make(DuplicateQuerySettings::class);
 
-            return new ExcludeMatcher($settings->exclusions->queries);
-        });
-
-        $this->app->singleton(RouteExcludeMatcher::class, function (Application $app): RouteExcludeMatcher {
-            $settings = $app->make(DuplicateQuerySettings::class);
-
-            return new RouteExcludeMatcher($settings->exclusions->routes);
+            return new ExcludeMatcher($settings->exclusions->rules);
         });
 
         $this->app->singleton(DuplicateQueryAggregator::class, function (Application $app): DuplicateQueryAggregator {
@@ -91,16 +86,19 @@ class QueryDuplicatesServiceProvider extends ServiceProvider
         $this->app->instance(DuplicateQuerySettings::class, $settings);
         $this->app->instance(
             ExcludeMatcher::class,
-            new ExcludeMatcher($settings->exclusions->queries),
-        );
-        $this->app->instance(
-            RouteExcludeMatcher::class,
-            new RouteExcludeMatcher($settings->exclusions->routes),
+            new ExcludeMatcher($settings->exclusions->rules),
         );
 
-        $this->app->make(Dispatcher::class)->listen(
+        $dispatcher = $this->app->make(Dispatcher::class);
+
+        $dispatcher->listen(
             QueryExecuted::class,
             $this->app->make(RecordQuery::class),
+        );
+
+        $dispatcher->listen(
+            RouteMatched::class,
+            $this->app->make(SetMatchedRoute::class),
         );
 
         /** @var HttpKernel $kernel */

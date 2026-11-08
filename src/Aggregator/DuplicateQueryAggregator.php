@@ -22,6 +22,11 @@ final class DuplicateQueryAggregator
      */
     private int $threshold = MethodGroupSettings::MINIMUM_THRESHOLD;
 
+    /**
+     * Route name of the current HTTP request, when the route is named.
+     */
+    private ?string $routeName = null;
+
     public function __construct(
         private readonly DuplicateQuerySettings $settings,
         private readonly ExcludeMatcher $excludeMatcher,
@@ -52,12 +57,24 @@ final class DuplicateQueryAggregator
     }
 
     /**
+     * Sets the route name of the current HTTP request.
+     *
+     * The name is known after the router matches the request and is used for
+     * route-scoped query exclusions.
+     */
+    public function setRouteName(?string $routeName): void
+    {
+        $this->routeName = $routeName;
+    }
+
+    /**
      * Resets the collection area completely.
      */
     public function reset(): void
     {
         $this->active = false;
         $this->threshold = MethodGroupSettings::MINIMUM_THRESHOLD;
+        $this->routeName = null;
         $this->groups = [];
     }
 
@@ -70,7 +87,7 @@ final class DuplicateQueryAggregator
             return;
         }
 
-        if ($this->excludeMatcher->matches($query->sql, $query->bindings)) {
+        if ($this->excludeMatcher->matches($this->routeName, $query->sql, $query->bindings)) {
             return;
         }
 

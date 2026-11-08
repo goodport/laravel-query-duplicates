@@ -24,8 +24,8 @@ final class DisabledTest extends TestCase
             'unknown' => [],
         ]);
         $app['config']->set('query-duplicates.exclude', [
-            'routes' => [''],
-            'queries' => [''],
+            ['route' => ''],
+            ['query' => ''],
         ]);
     }
 
@@ -67,8 +67,8 @@ final class DisabledTest extends TestCase
             config('query-duplicates.methods'),
         );
         $this->assertSame([
-            'routes' => [''],
-            'queries' => [''],
+            ['route' => ''],
+            ['query' => ''],
         ], config('query-duplicates.exclude'));
     }
 }

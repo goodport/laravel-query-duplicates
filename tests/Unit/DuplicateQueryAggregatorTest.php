@@ -5,6 +5,7 @@ namespace Goodport\QueryDuplicates\Tests\Unit;
 use Goodport\QueryDuplicates\Aggregator\DuplicateQueryAggregator;
 use Goodport\QueryDuplicates\Aggregator\QueryGroup;
 use Goodport\QueryDuplicates\Config\DuplicateQuerySettings;
+use Goodport\QueryDuplicates\Config\ExclusionRule;
 use Goodport\QueryDuplicates\Config\ExclusionSettings;
 use Goodport\QueryDuplicates\Config\MethodGroupSettings;
 use Goodport\QueryDuplicates\Support\ExcludeMatcher;
@@ -202,7 +203,9 @@ final class DuplicateQueryAggregatorTest extends TestCase
     public function test_excluded_queries_are_ignored(): void
     {
         $aggregator = $this->makeAggregator(
-            excludeMatcher: new ExcludeMatcher(['as sessions']),
+            excludeMatcher: new ExcludeMatcher([
+                new ExclusionRule(route: null, sql: 'as sessions', bindings: []),
+            ]),
         );
         $aggregator->start(2);
 
@@ -260,7 +263,7 @@ final class DuplicateQueryAggregatorTest extends TestCase
                 strict: $strict,
                 getGroup: MethodGroupSettings::getDefaults(),
                 otherGroup: MethodGroupSettings::otherDefaults(),
-                exclusions: new ExclusionSettings([], []),
+                exclusions: new ExclusionSettings([]),
             ),
             excludeMatcher: $excludeMatcher ?? new ExcludeMatcher([]),
             relationDetector: $this->makeDetector($relationCallsites),

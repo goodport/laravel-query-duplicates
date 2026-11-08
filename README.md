@@ -115,8 +115,15 @@ return [
         'middleware' => ['web', 'can:view-query-duplicates'],
     ],
     'exclude' => [
-        'routes' => [],
-        'queries' => [],
+        ['route' => 'admin.*'],
+        ['query' => 'select * from `sessions`'],
+        [
+            'route' => 'posts.*',
+            'query' => [
+                'sql' => 'select * from `example_events` where `category` = ?',
+                'bindings' => [0 => 'security'],
+            ],
+        ],
     ],
 ];
 ```
@@ -133,8 +140,7 @@ return [
 | `admin_route.enabled` | `true` | Registers the admin routes. The page is available even when tracking is disabled. |
 | `admin_route.prefix` | `query-duplicates` | Route prefix. Requests under this prefix are never tracked. |
 | `admin_route.middleware` | `['web', 'can:view-query-duplicates']` | Middleware for the admin routes. |
-| `exclude.routes` | `[]` | Route names or patterns with `*`; matching requests are not reported. |
-| `exclude.queries` | `[]` | SQL substrings and rules with optional bindings excluded from tracking. |
+| `exclude` | `[]` | List of exclusion rules. Each rule may contain `route`, `query`, or both. |
 
 `methods` is an associative array. The allowed groups are `get` and `other`; either
 group may be omitted, and a missing group receives its own defaults. Unknown groups
@@ -153,8 +159,8 @@ above.
   use `methods.get.threshold`, every other method uses `methods.other.threshold`.
 - A disabled group does not start collection. Its existing reports and the admin page
   stay available.
-- A request whose route name matches `exclude.routes` is not reported; other routes
-  are tracked normally.
+- A route-only exclusion rule skips every query on matching routes. A rule with both
+  `route` and `query` excludes only matching queries on matching routes.
 - A query is considered only when it ran at least the active group threshold times.
 - **N+1**: the query comes from a lazy Eloquent relation, and at least the threshold
   number of executions share the same call site.
@@ -185,47 +191,42 @@ accepted v1 limitation.
 
 ### Exclusions
 
-`exclude` has two branches: `routes` and `queries`.
+`exclude` is a list of exclusion rules. Each rule may contain `route`, `query`, or
+both.
 
-#### Route exclusions
+#### Route only
 
-Route exclusions use named routes. A pattern may contain `*`, for example `admin.*`:
+A route-only rule excludes every query on matching routes. Route names support `*`
+wildcards:
 
 ```php
 'exclude' => [
-    'routes' => [
-        'admin.*',
-        'health',
-    ],
-    'queries' => [],
+    ['route' => 'admin.*'],
 ],
 ```
 
-When the route name matches, the whole request is not stored in the reports. Unnamed
-routes cannot match a route exclusion.
+Unnamed routes cannot match a route exclusion.
 
-#### Query exclusions
+#### Query only
 
-Each `queries` entry is either a SQL substring or a rule array. Substrings are
-matched against the normalized SQL returned by Laravel, so `?` placeholders are
-used and bindings do not affect matching:
+A query-only rule excludes matching queries on every route:
 
 ```php
 'exclude' => [
-    'routes' => [],
-    'queries' => [
-        'select * from `sessions`',
-    ],
+    ['query' => 'select * from `sessions`'],
 ],
 ```
 
-A rule array has a required `sql` substring and optional `bindings`:
+#### Scoped to a route
+
+A rule with both keys excludes only matching queries on matching routes. The same
+query on other routes is still tracked:
 
 ```php
 'exclude' => [
-    'routes' => [],
-    'queries' => [
-        [
+    [
+        'route' => 'posts.*',
+        'query' => [
             'sql' => 'select * from `example_events` where `category` = ? and `owner_type` = ?',
             'bindings' => [
                 0 => 'security',
@@ -236,20 +237,24 @@ A rule array has a required `sql` substring and optional `bindings`:
 ],
 ```
 
-The query is excluded only when the SQL contains `sql` and every listed binding
-position matches the query bindings strictly (`===`). Positions that are not
+A `query` is either a SQL substring or an array with a required `sql` substring and
+optional `bindings`. Substrings are matched against the normalized SQL returned by
+Laravel, so `?` placeholders are used and bindings do not affect matching.
+
+A rule array excludes the query only when the SQL contains `sql` and every listed
+binding position matches the query bindings strictly (`===`). Positions that are not
 listed in the rule, including dynamic identifiers and types, are not checked.
 A position that is listed in the rule but missing from the query does not match.
-An empty `bindings` array excludes by SQL only. Several entries are combined with
-OR, and string entries keep their previous behavior.
+An empty `bindings` array excludes by SQL only. Several rules are combined with OR.
 
-Invalid entries, such as an empty route pattern, a non-list `routes` value, an empty
-`sql`, a non-array `bindings` value, or a negative or non-integer binding position,
-stop configuration parsing with an `InvalidArgumentException`.
+Invalid entries, such as a rule without `route` or `query`, an empty route or query,
+an unknown key, an empty `sql`, a non-array `bindings` value, or a negative or
+non-integer binding position, stop configuration parsing with an
+`InvalidArgumentException`.
 
-> **Breaking change.** The previous flat `exclude` list was removed. Move SQL
-> substrings and rules under `exclude.queries` and put route patterns under
-> `exclude.routes`. Update a published `config/query-duplicates.php` before upgrading.
+> **Breaking change.** The previous split `exclude.routes` / `exclude.queries`
+> structure and the older flat `exclude` list were removed. Use the rule list shown
+> above and update a published `config/query-duplicates.php` before upgrading.
 
 The published configuration is a literal array of scalars and arrays, with no
 class references, closures or callables. It keeps working after

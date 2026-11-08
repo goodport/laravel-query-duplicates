@@ -106,15 +106,17 @@ return [
     | Exclusions
     |--------------------------------------------------------------------------
     |
-    | Routes:
-    | Route names or patterns with [*] excluded from tracking. A matching
-    | request is not stored in the reports. Unnamed routes cannot match.
+    | Each entry is an exclusion rule with an optional [route] and [query].
     |
-    | Queries:
-    | An entry is either a SQL substring or a rule array with [sql] and
-    | optional [bindings]. SQL is matched against the statement with
+    | Route only: excludes every query on matching routes.
+    | Query only: excludes matching queries on every route.
+    | Both: excludes matching queries only on matching routes.
+    |
+    | Route names support [*] wildcards. Unnamed routes cannot match a route
+    | exclusion. A query is either a SQL substring or a rule array with [sql]
+    | and optional [bindings]. SQL is matched against the statement with
     | placeholders. Only the binding positions listed in the rule are compared,
-    | using strict equality.
+    | using strict equality. At least one of [route] or [query] is required.
     |
     | The configuration contains only arrays and scalar values, so it can be
     | cached with config:cache.
@@ -122,12 +124,15 @@ return [
     | Example:
     |
     | 'exclude' => [
-    |     'routes' => [
-    |         'admin.*',
+    |     [
+    |         'route' => 'admin.*',
     |     ],
-    |     'queries' => [
-    |         'select * from `sessions`',
-    |         [
+    |     [
+    |         'query' => 'select * from `sessions`',
+    |     ],
+    |     [
+    |         'route' => 'posts.*',
+    |         'query' => [
     |             'sql' => 'select * from `example_events` where `category` = ?',
     |             'bindings' => [
     |                 0 => 'security',
@@ -138,9 +143,6 @@ return [
     |
     */
 
-    'exclude' => [
-        'routes' => [],
-        'queries' => [],
-    ],
+    'exclude' => [],
 
 ];

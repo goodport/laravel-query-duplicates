@@ -7,10 +7,9 @@ use Goodport\QueryDuplicates\Tests\TestCase;
 final class ExclusionTest extends TestCase
 {
     protected ?array $exclude = [
-        'routes' => [],
-        'queries' => [
-            'as sessions',
-            [
+        ['query' => 'as sessions'],
+        [
+            'query' => [
                 'sql' => 'select * from `example_events` where `category` = ?',
                 'bindings' => [0 => 'security'],
             ],

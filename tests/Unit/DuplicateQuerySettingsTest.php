@@ -25,8 +25,7 @@ final class DuplicateQuerySettingsTest extends TestCase
         $this->assertSame(2, $settings->getGroup->threshold);
         $this->assertTrue($settings->otherGroup->enabled);
         $this->assertSame(5, $settings->otherGroup->threshold);
-        $this->assertSame([], $settings->exclusions->routes);
-        $this->assertSame([], $settings->exclusions->queries);
+        $this->assertSame([], $settings->exclusions->rules);
     }
 
     /**
@@ -186,39 +185,33 @@ final class DuplicateQuerySettingsTest extends TestCase
     }
 
     /**
-     * An empty exclusion substring is invalid.
+     * A query-only rule is kept with an empty binding map.
      */
-    public function test_empty_exclude_entry_throws_exception(): void
-    {
-        $this->assertInvalidConfig(
-            ['exclude' => ['queries' => ['']]],
-            'Each [query-duplicates.exclude.queries] entry',
-        );
-    }
-
-    /**
-     * A string exclusion is kept as a SQL substring.
-     */
-    public function test_string_exclusion_is_kept(): void
+    public function test_query_only_rule_is_kept(): void
     {
         $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
             'exclude' => [
-                'queries' => ['from `sessions`'],
+                ['query' => 'from `sessions`'],
             ],
         ]));
 
-        $this->assertSame(['from `sessions`'], $settings->exclusions->queries);
+        $rule = $settings->exclusions->rules[0];
+
+        $this->assertCount(1, $settings->exclusions->rules);
+        $this->assertNull($rule->route);
+        $this->assertSame('from `sessions`', $rule->sql);
+        $this->assertSame([], $rule->bindings);
     }
 
     /**
-     * An array exclusion is normalized with its bindings.
+     * A query rule with bindings is normalized.
      */
-    public function test_array_exclusion_is_normalized(): void
+    public function test_query_rule_with_bindings_is_normalized(): void
     {
         $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
             'exclude' => [
-                'queries' => [
-                    [
+                [
+                    'query' => [
                         'sql' => 'select * from `example_events` where `category` = ?',
                         'bindings' => [0 => 'security'],
                     ],
@@ -226,144 +219,64 @@ final class DuplicateQuerySettingsTest extends TestCase
             ],
         ]));
 
-        $this->assertSame([
-            [
-                'sql' => 'select * from `example_events` where `category` = ?',
-                'bindings' => [0 => 'security'],
-            ],
-        ], $settings->exclusions->queries);
+        $rule = $settings->exclusions->rules[0];
+
+        $this->assertNull($rule->route);
+        $this->assertSame('select * from `example_events` where `category` = ?', $rule->sql);
+        $this->assertSame([0 => 'security'], $rule->bindings);
     }
 
     /**
      * Bindings are optional and default to an empty map.
      */
-    public function test_rule_without_bindings_defaults_to_empty_map(): void
+    public function test_query_rule_without_bindings_defaults_to_empty_map(): void
     {
         $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
             'exclude' => [
-                'queries' => [
-                    ['sql' => 'from `sessions`'],
+                ['query' => ['sql' => 'from `sessions`']],
+            ],
+        ]));
+
+        $this->assertSame([], $settings->exclusions->rules[0]->bindings);
+    }
+
+    /**
+     * A route-only rule is trimmed and has no query.
+     */
+    public function test_route_only_rule_is_kept(): void
+    {
+        $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
+            'exclude' => [
+                ['route' => ' admin.* '],
+            ],
+        ]));
+
+        $rule = $settings->exclusions->rules[0];
+
+        $this->assertSame('admin.*', $rule->route);
+        $this->assertNull($rule->sql);
+        $this->assertSame([], $rule->bindings);
+    }
+
+    /**
+     * A rule can combine a route and a query.
+     */
+    public function test_route_and_query_rule_is_kept(): void
+    {
+        $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
+            'exclude' => [
+                [
+                    'route' => 'posts.*',
+                    'query' => 'from `sessions`',
                 ],
             ],
         ]));
 
-        $this->assertSame([
-            ['sql' => 'from `sessions`', 'bindings' => []],
-        ], $settings->exclusions->queries);
-    }
+        $rule = $settings->exclusions->rules[0];
 
-    /**
-     * An empty rule SQL is invalid.
-     */
-    public function test_empty_rule_sql_throws_exception(): void
-    {
-        $this->assertInvalidConfig(
-            ['exclude' => ['queries' => [['sql' => '']]]],
-            'query-duplicates.exclude.queries',
-        );
-    }
-
-    /**
-     * A non-string rule SQL is invalid.
-     */
-    public function test_non_string_rule_sql_throws_exception(): void
-    {
-        $this->assertInvalidConfig(
-            ['exclude' => ['queries' => [['sql' => 123]]]],
-            'query-duplicates.exclude.queries',
-        );
-    }
-
-    /**
-     * Rule bindings must be an array.
-     */
-    public function test_non_array_rule_bindings_throws_exception(): void
-    {
-        $this->assertInvalidConfig(
-            ['exclude' => ['queries' => [['sql' => 'from `sessions`', 'bindings' => 'security']]]],
-            'query-duplicates.exclude.queries',
-        );
-    }
-
-    /**
-     * A negative binding position is invalid.
-     */
-    public function test_negative_binding_position_throws_exception(): void
-    {
-        $this->assertInvalidConfig(
-            ['exclude' => ['queries' => [['sql' => 'from `sessions`', 'bindings' => [-1 => 'security']]]]],
-            'query-duplicates.exclude.queries',
-        );
-    }
-
-    /**
-     * A non-integer binding position is invalid.
-     */
-    public function test_non_integer_binding_position_throws_exception(): void
-    {
-        $this->assertInvalidConfig(
-            ['exclude' => ['queries' => [['sql' => 'from `sessions`', 'bindings' => ['category' => 'security']]]]],
-            'query-duplicates.exclude.queries',
-        );
-    }
-
-    /**
-     * Unknown rule keys are invalid.
-     */
-    public function test_unknown_rule_key_throws_exception(): void
-    {
-        $this->assertInvalidConfig(
-            ['exclude' => ['queries' => [['sql' => 'from `sessions`', 'binding' => [0 => 'security']]]]],
-            'query-duplicates.exclude.queries',
-        );
-    }
-
-    /**
-     * An entry must be a string or an array rule.
-     */
-    public function test_invalid_exclusion_entry_type_throws_exception(): void
-    {
-        $this->assertInvalidConfig(
-            ['exclude' => ['queries' => [123]]],
-            'query-duplicates.exclude.queries',
-        );
-    }
-
-    /**
-     * Route exclusions are trimmed and keep wildcard patterns.
-     */
-    public function test_route_exclusions_are_loaded(): void
-    {
-        $settings = DuplicateQuerySettings::fromConfig($this->packageConfig([
-            'exclude' => [
-                'routes' => [' admin.* ', 'health'],
-            ],
-        ]));
-
-        $this->assertSame(['admin.*', 'health'], $settings->exclusions->routes);
-        $this->assertSame([], $settings->exclusions->queries);
-    }
-
-    /**
-     * Route exclusions must be a list.
-     */
-    public function test_route_exclusions_must_be_list(): void
-    {
-        $this->assertInvalidConfig(
-            ['exclude' => ['routes' => 'admin.*']],
-            'query-duplicates.exclude.routes',
-        );
-    }
-
-    /**
-     * An empty route exclusion is invalid.
-     */
-    public function test_empty_route_exclusion_throws_exception(): void
-    {
-        $this->assertInvalidConfig(
-            ['exclude' => ['routes' => ['']]],
-            'query-duplicates.exclude.routes',
-        );
+        $this->assertSame('posts.*', $rule->route);
+        $this->assertSame('from `sessions`', $rule->sql);
+        $this->assertSame([], $rule->bindings);
     }
 
     /**
@@ -375,28 +288,148 @@ final class DuplicateQuerySettingsTest extends TestCase
             'exclude' => [],
         ]));
 
-        $this->assertSame([], $settings->exclusions->routes);
-        $this->assertSame([], $settings->exclusions->queries);
+        $this->assertSame([], $settings->exclusions->rules);
     }
 
     /**
-     * The previous flat exclude list is rejected.
+     * An empty rule is invalid.
      */
-    public function test_flat_exclude_list_throws_exception(): void
+    public function test_empty_rule_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['exclude' => [[]]],
+            'must contain [route] or [query]',
+        );
+    }
+
+    /**
+     * A rule entry must be an array.
+     */
+    public function test_rule_entry_must_be_an_array(): void
     {
         $this->assertInvalidConfig(
             ['exclude' => ['from `sessions`']],
+            'Each [query-duplicates.exclude] entry',
+        );
+    }
+
+    /**
+     * Unknown rule keys are rejected.
+     */
+    public function test_unknown_rule_key_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['exclude' => [['route' => 'admin.*', 'limit' => 1]]],
             'query-duplicates.exclude',
         );
     }
 
     /**
-     * Unknown exclude keys are rejected.
+     * A route must be a non-empty string.
      */
-    public function test_unknown_exclude_key_throws_exception(): void
+    public function test_empty_route_throws_exception(): void
     {
         $this->assertInvalidConfig(
-            ['exclude' => ['routes' => [], 'query' => []]],
+            ['exclude' => [['route' => '']]],
+            'query-duplicates.exclude',
+        );
+    }
+
+    /**
+     * A query must be a non-empty string or a rule array.
+     */
+    public function test_empty_query_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['exclude' => [['query' => '']]],
+            'query-duplicates.exclude',
+        );
+    }
+
+    /**
+     * A non-string query is invalid.
+     */
+    public function test_non_string_query_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['exclude' => [['query' => 123]]],
+            'query-duplicates.exclude',
+        );
+    }
+
+    /**
+     * Unknown query rule keys are rejected.
+     */
+    public function test_unknown_query_key_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['exclude' => [['query' => ['sql' => 'from `sessions`', 'limit' => 1]]]],
+            'query-duplicates.exclude',
+        );
+    }
+
+    /**
+     * An empty query SQL is invalid.
+     */
+    public function test_empty_query_sql_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['exclude' => [['query' => ['sql' => '']]]],
+            'query-duplicates.exclude',
+        );
+    }
+
+    /**
+     * A non-string query SQL is invalid.
+     */
+    public function test_non_string_query_sql_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['exclude' => [['query' => ['sql' => 123]]]],
+            'query-duplicates.exclude',
+        );
+    }
+
+    /**
+     * Query bindings must be an array.
+     */
+    public function test_non_array_query_bindings_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['exclude' => [['query' => ['sql' => 'from `sessions`', 'bindings' => 'security']]]],
+            'query-duplicates.exclude',
+        );
+    }
+
+    /**
+     * A negative binding position is invalid.
+     */
+    public function test_negative_binding_position_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['exclude' => [['query' => ['sql' => 'from `sessions`', 'bindings' => [-1 => 'security']]]]],
+            'query-duplicates.exclude',
+        );
+    }
+
+    /**
+     * A non-integer binding position is invalid.
+     */
+    public function test_non_integer_binding_position_throws_exception(): void
+    {
+        $this->assertInvalidConfig(
+            ['exclude' => [['query' => ['sql' => 'from `sessions`', 'bindings' => ['category' => 'security']]]]],
+            'query-duplicates.exclude',
+        );
+    }
+
+    /**
+     * The previous split routes and queries structure is rejected.
+     */
+    public function test_previous_routes_and_queries_structure_is_rejected(): void
+    {
+        $this->assertInvalidConfig(
+            ['exclude' => ['routes' => [], 'queries' => []]],
             'query-duplicates.exclude',
         );
     }
@@ -419,8 +452,8 @@ final class DuplicateQuerySettingsTest extends TestCase
             'strict' => 'yes',
             'methods' => ['get' => ['threshold' => 1], 'unknown' => []],
             'exclude' => [
-                'routes' => [''],
-                'queries' => [''],
+                ['route' => ''],
+                ['query' => ''],
             ],
         ]));
 
@@ -428,8 +461,7 @@ final class DuplicateQuerySettingsTest extends TestCase
         $this->assertFalse($settings->strict);
         $this->assertEquals(MethodGroupSettings::getDefaults(), $settings->getGroup);
         $this->assertEquals(MethodGroupSettings::otherDefaults(), $settings->otherGroup);
-        $this->assertSame([], $settings->exclusions->routes);
-        $this->assertSame([], $settings->exclusions->queries);
+        $this->assertSame([], $settings->exclusions->rules);
     }
 
     /**

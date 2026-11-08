@@ -9,7 +9,6 @@ use Goodport\QueryDuplicates\Config\DuplicateQuerySettings;
 use Goodport\QueryDuplicates\Config\MethodGroupSettings;
 use Goodport\QueryDuplicates\Recording\QueryDuplicateRecorder;
 use Goodport\QueryDuplicates\Recording\QueryRequestContext;
-use Goodport\QueryDuplicates\Support\RouteExcludeMatcher;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -19,7 +18,6 @@ final class TrackDuplicateQueries
         private readonly DuplicateQueryAggregator $aggregator,
         private readonly QueryDuplicateRecorder $recorder,
         private readonly DuplicateQuerySettings $settings,
-        private readonly RouteExcludeMatcher $routeExcludeMatcher,
     ) {}
 
     /**
@@ -48,9 +46,6 @@ final class TrackDuplicateQueries
 
     /**
      * Stores the report and resets the collection area.
-     *
-     * Route exclusions are applied here because the route name is known only
-     * after the router has matched the request.
      */
     public function terminate(Request $request, Response $response): void
     {
@@ -59,16 +54,10 @@ final class TrackDuplicateQueries
         }
 
         try {
-            $routeName = $request->route()?->getName();
-
-            if ($this->routeExcludeMatcher->matches($routeName)) {
-                return;
-            }
-
             $requestContext = new QueryRequestContext(
                 method: $request->getMethod(),
                 path: $request->path(),
-                route: $routeName,
+                route: $request->route()?->getName(),
             );
 
             $this->recorder->record($requestContext, $this->aggregator->report());

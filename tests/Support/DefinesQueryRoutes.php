@@ -74,6 +74,13 @@ trait DefinesQueryRoutes
             return response('ok');
         })->name('testing.duplicates.excluded-substring');
 
+        $router->get('/duplicates/sessions', function () {
+            $this->runQueryTwice('select 1 as sessions');
+            $this->runQueryTwice('select 2 as kept');
+
+            return response('ok');
+        })->name('testing.duplicates.sessions');
+
         $router->get('/duplicates/excluded-bindings', function () {
             $sql = 'select * from `example_events` where `category` = ?';
 

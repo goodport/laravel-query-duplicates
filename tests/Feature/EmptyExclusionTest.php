@@ -6,10 +6,7 @@ use Goodport\QueryDuplicates\Tests\TestCase;
 
 final class EmptyExclusionTest extends TestCase
 {
-    protected ?array $exclude = [
-        'routes' => [],
-        'queries' => [],
-    ];
+    protected ?array $exclude = [];
 
     /**
      * An empty exclusion list keeps every duplicate query in the report.

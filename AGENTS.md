@@ -16,16 +16,18 @@
 - `src/QueryDuplicatesServiceProvider.php` — config, SQLite connection, views, translations, admin routes, listener and middleware registration.
 - `src/Storage/SqliteStorage.php` — owns the `query-duplicates` connection, file path, directory creation, and the automatic `query_duplicates` table.
 - `src/Storage/StorageUnavailableException.php` — unavailable SQLite directory, file, or table.
-- `src/Http/TrackDuplicateQueries.php` — per-HTTP-request collection lifecycle, admin-prefix skip, route exclusions, and recorder call in `terminate()`.
+- `src/Http/TrackDuplicateQueries.php` — per-HTTP-request collection lifecycle, admin-prefix skip, and recorder call in `terminate()`.
 - `src/Http/QueryDuplicateController.php` — admin page, clear, and single-report delete actions.
 - `src/Http/Requests/QueryDuplicateIndexRequest.php` — query filter validation.
 - `src/Listener/RecordQuery.php` — subscribes to `QueryExecuted`.
+- `src/Listener/SetMatchedRoute.php` — sets the matched route name and stops collection for route-only exclusions.
 - `src/Aggregator/DuplicateQueryAggregator.php` — query grouping and reporting rules.
 - `src/Aggregator/QueryGroup.php` — group data and the `duplicate` and `n+1` types.
 - `src/Config/AdminRouteDefaults.php` — safe admin route defaults and normalization.
 - `src/Config/BooleanValue.php` — strict boolean config parsing shared by settings and the admin route.
 - `src/Config/DuplicateQuerySettings.php` — tracking config parsing and validation.
-- `src/Config/ExclusionSettings.php` — route and query exclusion parsing and validation.
+- `src/Config/ExclusionRule.php` — one optional-route/optional-query exclusion rule and its parsing.
+- `src/Config/ExclusionSettings.php` — exclusion rule list parsing and validation.
 - `src/Config/MethodGroupSettings.php` — GET and non-GET method group settings, defaults, and parsing.
 - `src/Models/QueryDuplicate.php` — report model fixed to the `query-duplicates` connection.
 - `src/Recording/ReportKey.php` — path and SQL normalization and the SHA-256 report identity.
@@ -50,7 +52,8 @@
 - Tracking is configured in two groups under `methods`: `get` for GET requests and `other` for every non-GET method, including custom methods.
 - Each group has `enabled` and `threshold`. A disabled group does not start collection; its existing reports and the admin page stay available.
 - The group threshold is selected per HTTP request before collection starts and applies to both duplicates and N+1. GET defaults to `2`, other methods default to `5`.
-- Requests whose route name matches `exclude.routes` are not stored; patterns support `*`. Query exclusions live under `exclude.queries`.
+- Exclusion rules may contain a route, a query, or both. Route-only rules exclude every query on matching routes; query-only rules exclude everywhere; both scope the query to matching routes. Route patterns support `*`.
+- The matched route name is captured from `RouteMatched` for route-scoped exclusions.
 - Reports are still split by the actual HTTP method.
 - N+1 takes priority over duplicate.
 - The query string and bindings are never stored; SQL is stored exactly as `QueryExecuted` returned it.
